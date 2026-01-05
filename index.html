@@ -1,4 +1,12 @@
 <!DOCTYPE html>
+<!--
+Changelog:
+- Fixed octave-down error by making harmonic guard require strict CMND improvement
+- Chromatic mode for fretted notes; Open-String Auto intended only for open strings
+- Gauge values now reflect slider values
+- Defaults adjusted for iOS stability
+- Optional median smoothing added (HISTORY_N=9)
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -329,6 +337,7 @@
           <option value="guitar">Guitar (String Lock)</option>
           <option value="bass">Bass (String Lock)</option>
         </select>
+        <div class="hint">Open strings only (E2–E4). Use Chromatic for fretted notes.</div>
 
         <label for="stringSel">String (when locked)</label>
         <select id="stringSel" disabled></select>
@@ -375,21 +384,21 @@
         <input id="maxFreq" type="number" min="200" max="1500" step="10" value="400" />
 
         <label for="threshold">
-          YIN Threshold (CMND): <span id="thresholdVal" class="mono valueLabel">0.15</span>
+          YIN Threshold (CMND): <span id="thresholdVal" class="mono valueLabel">0.12</span>
         </label>
-        <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.15" />
+        <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.12" />
         <div class="smallPrint mono">Lower threshold = stricter (fewer false positives), higher = more sensitive.</div>
 
         <label for="confGate">
-          Confidence Gate: <span id="confGateVal" class="mono valueLabel">0.92</span>
+          Confidence Gate: <span id="confGateVal" class="mono valueLabel">0.70</span>
         </label>
-        <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.92" />
+        <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.70" />
         <div class="smallPrint mono">Below this confidence, UI shows “no pitch”.</div>
 
         <label for="rmsGate">
-          RMS Gate (dBFS approx): <span id="rmsGateVal" class="mono valueLabel">-50</span>
+          RMS Gate (dBFS approx): <span id="rmsGateVal" class="mono valueLabel">-55</span>
         </label>
-        <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-50" />
+        <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-55" />
         <div class="smallPrint mono">Below this level, UI shows “no pitch”.</div>
       </div>
     </div>
@@ -538,6 +547,9 @@
     freqHz: 0
   };
 
+  const FREQ_HISTORY = [];
+  const HISTORY_N = 9;
+
   const RMS_HOLD_MS = 100;
   let rmsGateHoldUntilMs = 0;
 
@@ -558,6 +570,13 @@
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
   function pct01(x){ return clamp(x, 0, 1) * 100; }
   function pctDb(x){ return ((clamp(x, -90, -20) + 90) / 70) * 100; }
+  function median(arr){
+    if (!arr.length) return 0;
+    const sorted = [...arr].sort((a,b)=>a-b);
+    const mid = Math.floor(sorted.length / 2);
+    if (sorted.length % 2 === 0) return (sorted[mid-1] + sorted[mid]) / 2;
+    return sorted[mid];
+  }
 
   // ---------------------------
   // Note / target math
@@ -753,19 +772,24 @@ class YinProcessor extends AudioWorkletProcessor {
       return { freq: 0, conf: 0 };
     }
 
-    // Harmonic guard: prefer plausible submultiples when CMND is comparable.
+    // Harmonic guard (FIXED):
+    // Only jump to a longer period if it is *clearly better* (lower CMND).
     const baseTau = tauEstimate;
-    const baseVal = this.cmnd[baseTau];
-    const allow = 0.02;
-
     let bestTau = baseTau;
+    let bestVal = this.cmnd[baseTau];
+
+    // How much better CMND must be to accept a longer period.
+    // 0.03–0.06 works well on guitar; use 0.04 default.
+    const IMPROVE = 0.04;
 
     for (let m = 2; m <= 4; m++) {
       const cand = baseTau * m;
       if (cand <= maxTau) {
         const v = this.cmnd[cand];
-        if (v <= baseVal + allow) {
+        // Accept ONLY if strictly better by at least IMPROVE
+        if (v < bestVal - IMPROVE) {
           bestTau = cand;
+          bestVal = v;
         }
       }
     }
@@ -1082,6 +1106,7 @@ registerProcessor("yin-processor", YinProcessor);
     rmsText.textContent  = latest.rmsDb.toFixed(1);
 
     if (!hasPitch){
+      FREQ_HISTORY.length = 0;
       display.hasPitch = false;
       noteText.textContent = "—";
       centsText.textContent = "no pitch";
@@ -1099,12 +1124,17 @@ registerProcessor("yin-processor", YinProcessor);
       return;
     }
 
+    let freq = latest.freqHz;
+    FREQ_HISTORY.push(freq);
+    if (FREQ_HISTORY.length > HISTORY_N) FREQ_HISTORY.shift();
+    freq = median(FREQ_HISTORY);
+
     // Determine target
     let targetHz = 0;
     let name = "—";
     let octave = "";
     if (mode === "open" || mode === "chromatic"){
-      const t = targetForAuto(latest.freqHz, a4Hz, mode);
+      const t = targetForAuto(freq, a4Hz, mode);
       targetHz = t.targetHz;
       name = t.name;
       octave = String(t.octave);
@@ -1116,18 +1146,18 @@ registerProcessor("yin-processor", YinProcessor);
       octave = String(t.octave);
     }
 
-    const cents = centsOff(latest.freqHz, targetHz);
+    const cents = centsOff(freq, targetHz);
 
     display.hasPitch = true;
     display.cents = cents;
     display.noteName = name;
     display.octave = octave;
     display.targetHz = targetHz;
-    display.freqHz = latest.freqHz;
+    display.freqHz = freq;
 
     // UI updates
     noteText.textContent = name + octave;
-    freqText.textContent = `freq: ${formatHz(latest.freqHz)} Hz • target: ${formatHz(targetHz)} Hz`;
+    freqText.textContent = `freq: ${formatHz(freq)} Hz • target: ${formatHz(targetHz)} Hz`;
 
     const absC = Math.abs(cents);
     const rounded = (cents >= 0 ? "+" : "") + cents.toFixed(1) + "¢";
