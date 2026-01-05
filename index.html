@@ -375,21 +375,21 @@
         <input id="maxFreq" type="number" min="200" max="1500" step="10" value="400" />
 
         <label for="threshold">
-          YIN Threshold (CMND): <span id="thresholdVal" class="mono valueLabel">0.15</span>
+          YIN Threshold (CMND): <span id="thresholdVal" class="mono valueLabel">0.12</span>
         </label>
-        <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.15" />
+        <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.12" />
         <div class="smallPrint mono">Lower threshold = stricter (fewer false positives), higher = more sensitive.</div>
 
         <label for="confGate">
-          Confidence Gate: <span id="confGateVal" class="mono valueLabel">0.92</span>
+          Confidence Gate: <span id="confGateVal" class="mono valueLabel">0.70</span>
         </label>
-        <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.92" />
+        <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.70" />
         <div class="smallPrint mono">Below this confidence, UI shows “no pitch”.</div>
 
         <label for="rmsGate">
-          RMS Gate (dBFS approx): <span id="rmsGateVal" class="mono valueLabel">-50</span>
+          RMS Gate (dBFS approx): <span id="rmsGateVal" class="mono valueLabel">-55</span>
         </label>
-        <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-50" />
+        <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-55" />
         <div class="smallPrint mono">Below this level, UI shows “no pitch”.</div>
       </div>
     </div>
@@ -545,6 +545,9 @@
   let strobePhase = 0;
   let lastRAF = 0;
 
+  const FREQ_HISTORY = [];
+  const HISTORY_N = 9;
+
   function setError(msg){
     if (!msg){
       errBox.style.display = "none";
@@ -558,6 +561,11 @@
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
   function pct01(x){ return clamp(x, 0, 1) * 100; }
   function pctDb(x){ return ((clamp(x, -90, -20) + 90) / 70) * 100; }
+  function median(arr){
+    const a = arr.slice().sort((x,y)=>x-y);
+    const mid = (a.length / 2) | 0;
+    return (a.length % 2) ? a[mid] : (a[mid-1] + a[mid]) / 2;
+  }
 
   // ---------------------------
   // Note / target math
@@ -638,7 +646,7 @@ class YinProcessor extends AudioWorkletProcessor {
     this.hopSize = 256;
     this.minFreq = 70;
     this.maxFreq = 400;
-    this.threshold = 0.15;
+    this.threshold = 0.12;
 
     this._rebuild();
 
@@ -753,19 +761,22 @@ class YinProcessor extends AudioWorkletProcessor {
       return { freq: 0, conf: 0 };
     }
 
-    // Harmonic guard: prefer plausible submultiples when CMND is comparable.
+    // Harmonic guard (FIXED): only jump to a longer period if CMND is clearly better.
     const baseTau = tauEstimate;
-    const baseVal = this.cmnd[baseTau];
-    const allow = 0.02;
-
     let bestTau = baseTau;
+    let bestVal = this.cmnd[baseTau];
+
+    // Require a meaningful CMND improvement to select a longer period.
+    const IMPROVE = 0.04;
 
     for (let m = 2; m <= 4; m++) {
       const cand = baseTau * m;
       if (cand <= maxTau) {
         const v = this.cmnd[cand];
-        if (v <= baseVal + allow) {
+
+        if (v < bestVal - IMPROVE) {
           bestTau = cand;
+          bestVal = v;
         }
       }
     }
@@ -1070,6 +1081,16 @@ registerProcessor("yin-processor", YinProcessor);
 
     const hasPitch = (latest.freqHz > 0) && (latest.conf >= confGate) && rmsGateOpen;
 
+    // Stabilize frequency estimates with a rolling median when gated open.
+    let freq = latest.freqHz;
+    if (hasPitch){
+      FREQ_HISTORY.push(freq);
+      if (FREQ_HISTORY.length > HISTORY_N) FREQ_HISTORY.shift();
+      freq = median(FREQ_HISTORY);
+    } else {
+      FREQ_HISTORY.length = 0;
+    }
+
     confGateMarker.style.left = pct01(confGate).toFixed(1) + "%";
     confLiveMarker.style.left = pct01(latest.conf).toFixed(1) + "%";
     confGaugeText.textContent = `live ${latest.conf.toFixed(2)} / gate ${confGate.toFixed(2)}`;
@@ -1104,7 +1125,7 @@ registerProcessor("yin-processor", YinProcessor);
     let name = "—";
     let octave = "";
     if (mode === "open" || mode === "chromatic"){
-      const t = targetForAuto(latest.freqHz, a4Hz, mode);
+      const t = targetForAuto(freq, a4Hz, mode);
       targetHz = t.targetHz;
       name = t.name;
       octave = String(t.octave);
@@ -1116,18 +1137,18 @@ registerProcessor("yin-processor", YinProcessor);
       octave = String(t.octave);
     }
 
-    const cents = centsOff(latest.freqHz, targetHz);
+    const cents = centsOff(freq, targetHz);
 
     display.hasPitch = true;
     display.cents = cents;
     display.noteName = name;
     display.octave = octave;
     display.targetHz = targetHz;
-    display.freqHz = latest.freqHz;
+    display.freqHz = freq;
 
     // UI updates
     noteText.textContent = name + octave;
-    freqText.textContent = `freq: ${formatHz(latest.freqHz)} Hz • target: ${formatHz(targetHz)} Hz`;
+    freqText.textContent = `freq: ${formatHz(freq)} Hz • target: ${formatHz(targetHz)} Hz`;
 
     const absC = Math.abs(cents);
     const rounded = (cents >= 0 ? "+" : "") + cents.toFixed(1) + "¢";
