@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>YIN AudioWorklet Tuner Demo (Self-Contained)</title>
+  <style>
+    :root{
+      --bg:#050607;
+      --fg:#d7f7d7;
+      --accent:#20ff66;
+      --warn:#ffcc00;
+      --bad:#ff3b3b;
+      --panel:#0d1410;
+      --border:#1f3a2a;
+      --muted:#8fb39a;
+    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body{
+      margin:0; padding:18px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: radial-gradient(1200px 600px at 50% 0%, #0b1b12 0%, var(--bg) 50%);
+      color:var(--fg);
+      touch-action: manipulation;
+    }
+    .wrap{ max-width:900px; margin:0 auto; }
+    h1{
+      margin:0 0 8px 0;
+      font-size:18px;
+      letter-spacing:0.5px;
+      color:var(--accent);
+      text-shadow:0 0 10px rgba(32,255,102,0.25);
+    }
+    .sub{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:14px;
+      line-height:1.35;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap:14px;
+    }
+    @media (max-width: 820px){
+      .grid{ grid-template-columns:1fr; }
+    }
+    .panel{
+      background: rgba(13,20,16,0.92);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:14px;
+      box-shadow: 0 0 22px rgba(0,0,0,0.35);
+    }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .row > *{ flex: 0 0 auto; }
+    button{
+      padding:12px 14px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#0d2216;
+      color:var(--fg);
+      font-weight:700;
+      letter-spacing:0.5px;
+      cursor:pointer;
+    }
+    button.primary{
+      background: linear-gradient(180deg, rgba(32,255,102,0.25), rgba(32,255,102,0.10));
+      border-color: rgba(32,255,102,0.35);
+      color: var(--accent);
+      box-shadow:0 0 18px rgba(32,255,102,0.12);
+    }
+    button.danger{
+      background: linear-gradient(180deg, rgba(255,59,59,0.22), rgba(255,59,59,0.08));
+      border-color: rgba(255,59,59,0.35);
+      color: var(--bad);
+    }
+    button:disabled{ opacity:0.55; cursor:not-allowed; }
+    label{
+      font-size:12px;
+      color:var(--muted);
+      display:block;
+      margin:10px 0 6px;
+    }
+    select, input[type="range"], input[type="number"]{
+      width:100%;
+      padding:10px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#07110b;
+      color:var(--fg);
+      outline:none;
+    }
+    input[type="number"]{ padding:10px; }
+    .kpi{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+    .kpi .box{
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:10px;
+      background:#07110b;
+    }
+    .kpi .t{ font-size:11px; color:var(--muted); margin-bottom:6px; }
+    .kpi .v{ font-size:18px; font-weight:800; color:var(--accent); }
+    .kpi .v.small{ font-size:14px; color:var(--fg); font-weight:700; }
+    .big{
+      display:flex;
+      gap:14px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+    .readout{
+      flex:1;
+      min-width:220px;
+    }
+    .note{
+      font-size:46px;
+      font-weight:900;
+      color:var(--accent);
+      text-shadow:0 0 20px rgba(32,255,102,0.18);
+      line-height:1;
+    }
+    .hz{
+      margin-top:8px;
+      font-size:13px;
+      color:var(--muted);
+    }
+    .cents{
+      font-size:52px;
+      font-weight:900;
+      line-height:1;
+      color:var(--fg);
+    }
+    .cents.good{ color:var(--accent); }
+    .cents.warn{ color:var(--warn); }
+    .cents.bad{ color:var(--bad); }
+
+    .strobeWrap{
+      width:200px;
+      height:200px;
+      border-radius:50%;
+      border:2px solid rgba(32,255,102,0.35);
+      background: radial-gradient(circle at 50% 50%, rgba(32,255,102,0.08), rgba(0,0,0,0.85) 62%);
+      position:relative;
+      overflow:hidden;
+      box-shadow:0 0 22px rgba(32,255,102,0.10);
+      flex:0 0 auto;
+    }
+    .line{
+      position:absolute;
+      top:50%;
+      left:50%;
+      width:2px;
+      height:94px;
+      transform-origin: top;
+      background: rgba(32,255,102,0.85);
+      opacity:0.25;
+      filter: drop-shadow(0 0 6px rgba(32,255,102,0.25));
+    }
+    .centerDot{
+      position:absolute;
+      top:50%;
+      left:50%;
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      transform:translate(-50%,-50%);
+      background: rgba(32,255,102,0.8);
+      box-shadow:0 0 12px rgba(32,255,102,0.35);
+      opacity:0.75;
+    }
+    .bar{
+      margin-top:12px;
+      height:18px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:#07110b;
+      position:relative;
+      overflow:hidden;
+    }
+    .bar .mid{
+      position:absolute;
+      left:50%;
+      top:0; bottom:0;
+      width:2px;
+      background: rgba(32,255,102,0.4);
+    }
+    .bar .needle{
+      position:absolute;
+      top:-2px;
+      width:3px;
+      height:22px;
+      transform: translateX(-50%);
+      background: var(--fg);
+      box-shadow:0 0 10px rgba(255,255,255,0.18);
+      opacity:0.85;
+    }
+    .err{
+      border:1px solid rgba(255,59,59,0.35);
+      background: rgba(255,59,59,0.08);
+      color: var(--bad);
+      padding:10px 12px;
+      border-radius:10px;
+      margin-top:12px;
+      font-size:12px;
+      line-height:1.35;
+      display:none;
+    }
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    .mono{ font-variant-numeric: tabular-nums; }
+    .smallPrint{ margin-top:10px; font-size:11px; color:rgba(215,247,215,0.55); line-height:1.4; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>YIN AudioWorklet Tuner (Self-Contained Demo)</h1>
+    <div class="sub">
+      Priority: spec-grade DSP architecture (AudioWorklet + Modified YIN). UI is intentionally minimal. Microphone requires HTTPS and a user gesture.
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="big">
+          <div class="readout">
+            <div class="note mono" id="noteText">—</div>
+            <div class="hz mono" id="freqText">freq: — Hz • target: — Hz</div>
+            <div style="margin-top:10px;">
+              <div class="cents mono" id="centsText">—</div>
+              <div class="bar">
+                <div class="mid"></div>
+                <div class="needle" id="needle" style="left:50%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="strobeWrap" aria-label="strobe">
+            <div class="centerDot"></div>
+            <!-- lines injected by JS -->
+          </div>
+        </div>
+
+        <div class="kpi">
+          <div class="box">
+            <div class="t">Confidence</div>
+            <div class="v mono" id="confText">—</div>
+            <div class="t" style="margin-top:6px;">RMS (dBFS approx)</div>
+            <div class="v small mono" id="rmsText">—</div>
+          </div>
+          <div class="box">
+            <div class="t">Audio</div>
+            <div class="v small mono" id="srText">SR: —</div>
+            <div class="v small mono" id="statusText">status: idle</div>
+            <div class="t" style="margin-top:8px;">Mode</div>
+            <div class="v small mono" id="modeText">Auto (nearest note)</div>
+          </div>
+        </div>
+
+        <div class="err" id="errBox"></div>
+
+        <div class="hint">
+          If you see “no pitch” while playing, raise input level, pluck cleaner, and ensure echo cancellation/noise suppression are off (requested below, though iOS may override).
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row">
+          <button class="primary" id="btnStart">Start</button>
+          <button class="danger" id="btnStop" disabled>Stop</button>
+        </div>
+
+        <label for="mode">Tuning Mode</label>
+        <select id="mode">
+          <option value="auto" selected>Auto (nearest note)</option>
+          <option value="guitar">Guitar (string lock)</option>
+          <option value="bass">Bass (string lock)</option>
+        </select>
+
+        <label for="stringSel">String (when locked)</label>
+        <select id="stringSel" disabled></select>
+
+        <label for="a4">A4 Calibration (Hz): <span class="mono" id="a4Val">440</span></label>
+        <input id="a4" type="range" min="430" max="450" step="0.1" value="440" />
+
+        <label for="temperament">Temperament</label>
+        <select id="temperament">
+          <option value="equal" selected>Equal Temperament</option>
+          <option value="just">Just Intonation (C)</option>
+          <option value="pythagorean">Pythagorean</option>
+          <option value="meantone">Quarter-Comma Meantone</option>
+          <option value="werckmeister">Werckmeister III</option>
+        </select>
+
+        <label for="yinWindow">YIN Window Size</label>
+        <select id="yinWindow">
+          <option value="2048" selected>2048 (fast / responsive)</option>
+          <option value="4096">4096 (more stable lows)</option>
+          <option value="8192">8192 (very stable lows, heavier CPU)</option>
+        </select>
+
+        <label for="yinHop">Analysis Hop (samples)</label>
+        <select id="yinHop">
+          <option value="128">128 (more updates, heavier CPU)</option>
+          <option value="256" selected>256 (balanced)</option>
+          <option value="512">512 (lighter CPU)</option>
+        </select>
+
+        <label for="minFreq">Min Freq (Hz) for search (limits octave errors)</label>
+        <input id="minFreq" type="number" min="20" max="200" step="1" value="70" />
+
+        <label for="maxFreq">Max Freq (Hz) for search</label>
+        <input id="maxFreq" type="number" min="200" max="3000" step="10" value="1200" />
+
+        <label for="threshold">YIN Threshold (CMND)</label>
+        <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.12" />
+        <div class="smallPrint mono">Lower threshold = stricter (fewer false positives), higher = more sensitive.</div>
+
+        <label for="confGate">Confidence Gate</label>
+        <input id="confGate" type="range" min="0" max="0.9" step="0.01" value="0.15" />
+        <div class="smallPrint mono">Below this confidence, UI shows “no pitch”.</div>
+
+        <label for="rmsGate">RMS Gate (dBFS approx)</label>
+        <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-65" />
+        <div class="smallPrint mono">Below this level, UI shows “no pitch”.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ---------------------------
+  // Temperament offsets (cents) by pitch class (from v22 baseline)
+  // ---------------------------
+  const TEMPERAMENTS = {
+    equal: {
+      name: "Equal Temperament",
+      offsets: { C:0,'C#':0,D:0,'D#':0,E:0,F:0,'F#':0,G:0,'G#':0,A:0,'A#':0,B:0, Db:0,Eb:0,Gb:0,Ab:0,Bb:0 }
+    },
+    just: {
+      name: "Just Intonation (C)",
+      offsets: { C:0,'C#':-11,D:4,'D#':-6,E:-14,F:-2,'F#':-10,G:2,'G#':-8,A:-16,'A#':-4,B:-12, Db:-11,Eb:-6,Gb:-10,Ab:-8,Bb:-4 }
+    },
+    pythagorean: {
+      name: "Pythagorean",
+      offsets: { C:0,'C#':14,D:4,'D#':18,E:8,F:-2,'F#':12,G:2,'G#':16,A:6,'A#':20,B:10, Db:14,Eb:18,Gb:12,Ab:16,Bb:20 }
+    },
+    meantone: {
+      name: "Quarter-Comma Meantone",
+      offsets: { C:0,'C#':-24,D:-7,'D#':-31,E:-14,F:7,'F#':-17,G:0,'G#':-24,A:-7,'A#':-31,B:-14, Db:-24,Eb:-31,Gb:-17,Ab:-24,Bb:-31 }
+    },
+    werckmeister: {
+      name: "Werckmeister III",
+      offsets: { C:0,'C#':-8,D:-4,'D#':-10,E:-8,F:2,'F#':-6,G:-2,'G#':-8,A:-6,'A#':-8,B:-4, Db:-8,Eb:-10,Gb:-6,Ab:-8,Bb:-8 }
+    }
+  };
+
+  // Pitch class names
+  const NOTE_NAMES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  // Correct, unambiguous string targets via MIDI note numbers (no octave-array ambiguity)
+  // Standard guitar: E2 A2 D3 G3 B3 E4
+  const GUITAR_STRINGS = [
+    { name: "6 (E2)", midi: 40 },
+    { name: "5 (A2)", midi: 45 },
+    { name: "4 (D3)", midi: 50 },
+    { name: "3 (G3)", midi: 55 },
+    { name: "2 (B3)", midi: 59 },
+    { name: "1 (E4)", midi: 64 }
+  ];
+  // Standard 4-string bass: E1 A1 D2 G2
+  const BASS_STRINGS = [
+    { name: "4 (E1)", midi: 28 },
+    { name: "3 (A1)", midi: 33 },
+    { name: "2 (D2)", midi: 38 },
+    { name: "1 (G2)", midi: 43 }
+  ];
+
+  // ---------------------------
+  // UI Elements
+  // ---------------------------
+  const $ = (id) => document.getElementById(id);
+
+  const btnStart = $("btnStart");
+  const btnStop  = $("btnStop");
+  const errBox   = $("errBox");
+
+  const noteText = $("noteText");
+  const freqText = $("freqText");
+  const centsText = $("centsText");
+  const needle = $("needle");
+
+  const confText = $("confText");
+  const rmsText = $("rmsText");
+  const srText  = $("srText");
+  const statusText = $("statusText");
+  const modeText = $("modeText");
+
+  const modeSel = $("mode");
+  const stringSel = $("stringSel");
+
+  const a4 = $("a4");
+  const a4Val = $("a4Val");
+  const temperamentSel = $("temperament");
+
+  const yinWindowSel = $("yinWindow");
+  const yinHopSel = $("yinHop");
+  const minFreqInput = $("minFreq");
+  const maxFreqInput = $("maxFreq");
+  const thresholdInput = $("threshold");
+  const confGateInput = $("confGate");
+  const rmsGateInput = $("rmsGate");
+
+  // Strobe lines
+  const strobeWrap = document.querySelector(".strobeWrap");
+  const strobeLines = [];
+  for (let i=0;i<12;i++){
+    const line = document.createElement("div");
+    line.className = "line";
+    line.style.transform = `rotate(${i*30}deg) translate(-50%, 0)`;
+    strobeWrap.appendChild(line);
+    strobeLines.push(line);
+  }
+
+  // ---------------------------
+  // State
+  // ---------------------------
+  let audioCtx = null;
+  let workletNode = null;
+  let micStream = null;
+  let sourceNode = null;
+  let zeroGain = null;
+
+  // latest detector outputs (from worklet)
+  let latest = {
+    freqHz: 0,
+    conf: 0,
+    rmsDb: -120,
+    ts: 0
+  };
+
+  // display state
+  let display = {
+    hasPitch: false,
+    cents: 0,
+    noteName: "—",
+    octave: "",
+    targetHz: 0,
+    freqHz: 0
+  };
+
+  // strobe phase
+  let strobePhase = 0;
+  let lastRAF = 0;
+
+  function setError(msg){
+    if (!msg){
+      errBox.style.display = "none";
+      errBox.textContent = "";
+      return;
+    }
+    errBox.style.display = "block";
+    errBox.textContent = msg;
+  }
+
+  function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+
+  // ---------------------------
+  // Note / target math
+  // ---------------------------
+  function freqToMidi(freq, a4Hz){
+    // midi = 69 + 12*log2(freq/a4)
+    return 69 + 12 * (Math.log(freq / a4Hz) / Math.log(2));
+  }
+
+  function midiToFreq(midi, a4Hz){
+    return a4Hz * Math.pow(2, (midi - 69) / 12);
+  }
+
+  function midiToName(midi){
+    const m = Math.round(midi);
+    const pc = ((m % 12) + 12) % 12;
+    const octave = Math.floor(m / 12) - 1;
+    return { name: NOTE_NAMES_SHARP[pc], octave };
+  }
+
+  function temperamentOffsetCents(noteName){
+    const t = TEMPERAMENTS[temperamentSel.value] || TEMPERAMENTS.equal;
+    return t.offsets[noteName] || 0;
+  }
+
+  function targetForAuto(freq, a4Hz){
+    const m = freqToMidi(freq, a4Hz);
+    const mRound = Math.round(m);
+    const { name, octave } = midiToName(mRound);
+    let targetHz = midiToFreq(mRound, a4Hz);
+
+    // Apply temperament as cents offset to the target.
+    const off = temperamentOffsetCents(name);
+    targetHz *= Math.pow(2, off / 1200);
+
+    return { targetHz, name, octave };
+  }
+
+  function targetForStringLock(mode, idx, a4Hz){
+    const arr = mode === "bass" ? BASS_STRINGS : GUITAR_STRINGS;
+    const item = arr[idx] || arr[0];
+    const { name, octave } = midiToName(item.midi);
+    let targetHz = midiToFreq(item.midi, a4Hz);
+
+    const off = temperamentOffsetCents(name);
+    targetHz *= Math.pow(2, off / 1200);
+
+    return { targetHz, name, octave };
+  }
+
+  function centsOff(freq, targetHz){
+    return 1200 * (Math.log(freq / targetHz) / Math.log(2));
+  }
+
+  // ---------------------------
+  // Worklet code (as a Blob module)
+  // ---------------------------
+  function makeWorkletModuleURL(){
+    const code = `
+class YinProcessor extends AudioWorkletProcessor {
+  constructor(){
+    super();
+
+    // Defaults (can be updated via port messages)
+    this.windowSize = 2048;
+    this.hopSize = 256;
+    this.minFreq = 70;
+    this.maxFreq = 1200;
+    this.threshold = 0.12;
+
+    this._rebuild();
+
+    this.samplesSince = 0;
+    this.lastPostTime = 0;
+    this.postInterval = 1/30; // 30 Hz max UI updates
+
+    // running RMS (exponential)
+    this.rms2 = 0.0;
+    this.rmsAlpha = 0.90;
+
+    this.port.onmessage = (e) => {
+      const msg = e.data || {};
+      if (msg.type === "config"){
+        const ws = (msg.windowSize|0) || this.windowSize;
+        const hs = (msg.hopSize|0) || this.hopSize;
+        const minF = +msg.minFreq || this.minFreq;
+        const maxF = +msg.maxFreq || this.maxFreq;
+        const th = +msg.threshold || this.threshold;
+
+        const needRebuild =
+          ws !== this.windowSize ||
+          hs !== this.hopSize ||
+          minF !== this.minFreq ||
+          maxF !== this.maxFreq;
+
+        this.windowSize = ws;
+        this.hopSize = hs;
+        this.minFreq = minF;
+        this.maxFreq = maxF;
+        this.threshold = th;
+
+        if (needRebuild) this._rebuild();
+      }
+    };
+  }
+
+  _rebuild(){
+    // Pre-allocate everything needed in the render loop.
+    this.ring = new Float32Array(this.windowSize);
+    this.win  = new Float32Array(this.windowSize);
+    this.ringWrite = 0;
+    this.filled = 0;
+
+    // Tau bounds derived from actual sampleRate (AudioWorklet global).
+    // Guard against nonsense bounds.
+    const sr = sampleRate;
+    this.minTau = Math.max(2, Math.floor(sr / Math.max(this.maxFreq, 1)));
+    this.maxTau = Math.min(this.windowSize - 2, Math.floor(sr / Math.max(this.minFreq, 1)));
+
+    const len = this.maxTau + 1;
+    this.diff = new Float32Array(len);
+    this.cmnd = new Float32Array(len);
+  }
+
+  _copyRingToWindow(){
+    // Oldest sample is at ringWrite (next write position).
+    // Copy into contiguous win[] without allocations.
+    const N = this.windowSize;
+    let src = this.ringWrite;
+    let n1 = N - src;
+    // first segment
+    for (let i=0; i<n1; i++) this.win[i] = this.ring[src + i];
+    // wrap segment
+    for (let i=0; i<src; i++) this.win[n1 + i] = this.ring[i];
+  }
+
+  _yinEstimate(){
+    const N = this.windowSize;
+    const minTau = this.minTau;
+    const maxTau = this.maxTau;
+    const threshold = this.threshold;
+
+    // Difference function d(tau)
+    // diff[0] unused; set cmnd[0]=1 later.
+    for (let t=0; t<=maxTau; t++) this.diff[t] = 0;
+
+    // Compute only in [minTau..maxTau] for speed.
+    // (Still O(N * maxTau), but bounded for instrument ranges.)
+    for (let tau=minTau; tau<=maxTau; tau++){
+      let sum = 0;
+      // i from 0..N-tau-1
+      for (let i=0, j=tau; j<N; i++, j++){
+        const d = this.win[i] - this.win[j];
+        sum += d * d;
+      }
+      this.diff[tau] = sum;
+    }
+
+    // CMND d'(tau)
+    this.cmnd[0] = 1;
+    let runningSum = 0;
+    for (let tau=1; tau<=maxTau; tau++){
+      runningSum += this.diff[tau];
+      // Avoid division by 0
+      const denom = (runningSum > 0) ? runningSum : 1;
+      this.cmnd[tau] = (this.diff[tau] * tau) / denom;
+    }
+
+    // Find first tau where cmnd[tau] < threshold, then local min
+    let tauEstimate = -1;
+    for (let tau=minTau; tau<=maxTau; tau++){
+      if (this.cmnd[tau] < threshold){
+        // descend to local min
+        while (tau+1 <= maxTau && this.cmnd[tau+1] < this.cmnd[tau]) tau++;
+        tauEstimate = tau;
+        break;
+      }
+    }
+
+    if (tauEstimate === -1){
+      return { freq: 0, conf: 0 };
+    }
+
+    // Parabolic interpolation on CMND around tauEstimate
+    let betterTau = tauEstimate;
+    if (tauEstimate > 1 && tauEstimate < maxTau){
+      const x0 = this.cmnd[tauEstimate - 1];
+      const x1 = this.cmnd[tauEstimate];
+      const x2 = this.cmnd[tauEstimate + 1];
+      const denom = (2 * (x0 - 2*x1 + x2));
+      if (denom !== 0){
+        betterTau = tauEstimate + (x0 - x2) / denom;
+      }
+    }
+
+    const freq = sampleRate / betterTau;
+
+    // Confidence heuristic: 1 - CMND at tau (clamped)
+    const c = 1 - this.cmnd[tauEstimate];
+    const conf = (c < 0) ? 0 : (c > 1 ? 1 : c);
+
+    return { freq, conf };
+  }
+
+  process(inputs, outputs){
+    const input = inputs[0];
+    const output = outputs[0];
+
+    // Write silence to output (node must be connected to run).
+    if (output && output.length){
+      for (let ch=0; ch<output.length; ch++){
+        const outCh = output[ch];
+        for (let i=0; i<outCh.length; i++) outCh[i] = 0;
+      }
+    }
+
+    if (!input || input.length === 0 || !input[0]) return true;
+
+    const inCh = input[0];
+    const blockLen = inCh.length;
+
+    // Accumulate into ring, compute block energy
+    let e2 = 0;
+    for (let i=0; i<blockLen; i++){
+      const s = inCh[i];
+      // ring buffer write
+      this.ring[this.ringWrite] = s;
+      this.ringWrite++;
+      if (this.ringWrite >= this.windowSize) this.ringWrite = 0;
+      if (this.filled < this.windowSize) this.filled++;
+
+      e2 += s * s;
+    }
+
+    const blockRms2 = e2 / blockLen;
+    this.rms2 = this.rmsAlpha * this.rms2 + (1 - this.rmsAlpha) * blockRms2;
+
+    this.samplesSince += blockLen;
+
+    // Analyze at hop intervals, only after window filled
+    if (this.filled >= this.windowSize && this.samplesSince >= this.hopSize){
+      this.samplesSince = 0;
+
+      this._copyRingToWindow();
+      const est = this._yinEstimate();
+
+      // Throttle messages to reduce main-thread overhead
+      const now = currentTime;
+      if ((now - this.lastPostTime) >= this.postInterval){
+        this.lastPostTime = now;
+
+        // Approx dBFS from rms2 (avoid log(0))
+        const rms = Math.sqrt(this.rms2);
+        const rmsDb = 20 * Math.log10(rms + 1e-12);
+
+        this.port.postMessage({
+          type: "result",
+          freq: est.freq,
+          conf: est.conf,
+          rmsDb: rmsDb,
+          sr: sampleRate,
+          t: now
+        });
+      }
+    }
+
+    return true;
+  }
+}
+registerProcessor("yin-processor", YinProcessor);
+`;
+    const blob = new Blob([code], { type: "application/javascript" });
+    return URL.createObjectURL(blob);
+  }
+
+  function updateStringOptions(){
+    const mode = modeSel.value;
+    let arr = null;
+    if (mode === "guitar") arr = GUITAR_STRINGS;
+    if (mode === "bass") arr = BASS_STRINGS;
+
+    stringSel.innerHTML = "";
+    if (!arr){
+      stringSel.disabled = true;
+      return;
+    }
+    for (let i=0;i<arr.length;i++){
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = arr[i].name;
+      stringSel.appendChild(opt);
+    }
+    stringSel.disabled = false;
+    stringSel.value = "0";
+  }
+
+  function pushConfigToWorklet(){
+    if (!workletNode) return;
+    const cfg = {
+      windowSize: parseInt(yinWindowSel.value, 10),
+      hopSize: parseInt(yinHopSel.value, 10),
+      minFreq: clamp(parseFloat(minFreqInput.value || "70"), 20, 2000),
+      maxFreq: clamp(parseFloat(maxFreqInput.value || "1200"), 50, 5000),
+      threshold: clamp(parseFloat(thresholdInput.value || "0.12"), 0.02, 0.5)
+    };
+    workletNode.port.postMessage({ type:"config", ...cfg });
+  }
+
+  // ---------------------------
+  // Audio start/stop
+  // ---------------------------
+  async function start(){
+    setError(null);
+
+    if (!window.AudioContext && !window.webkitAudioContext){
+      setError("Web Audio API not available in this browser.");
+      return;
+    }
+
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioCtx({ latencyHint: "interactive" });
+
+    // iOS often starts suspended; resume must be in a user gesture (this click).
+    if (audioCtx.state !== "running"){
+      try { await audioCtx.resume(); } catch {}
+    }
+
+    // AudioWorklet availability check
+    if (!audioCtx.audioWorklet){
+      setError("AudioWorklet is not supported in this browser. (Older iOS versions may require an alternate path.)");
+      await safeStop();
+      return;
+    }
+
+    // Microphone
+    let stream = null;
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+    } catch (e){
+      setError("Microphone permission failed or unavailable. Ensure HTTPS, then allow mic access in Safari.");
+      await safeStop();
+      return;
+    }
+    micStream = stream;
+
+    try{
+      const moduleURL = makeWorkletModuleURL();
+      await audioCtx.audioWorklet.addModule(moduleURL);
+      URL.revokeObjectURL(moduleURL);
+    } catch (e){
+      setError("Failed to load AudioWorklet module. Some Safari builds are strict about worklet execution contexts.");
+      await safeStop();
+      return;
+    }
+
+    try{
+      workletNode = new AudioWorkletNode(audioCtx, "yin-processor", {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1]
+      });
+    } catch (e){
+      setError("Failed to create AudioWorkletNode.");
+      await safeStop();
+      return;
+    }
+
+    workletNode.port.onmessage = (e) => {
+      const msg = e.data || {};
+      if (msg.type !== "result") return;
+      latest.freqHz = msg.freq || 0;
+      latest.conf = msg.conf || 0;
+      latest.rmsDb = msg.rmsDb ?? -120;
+      latest.ts = msg.t || 0;
+
+      srText.textContent = "SR: " + (msg.sr ? Math.round(msg.sr) : "—");
+    };
+
+    // Build audio graph: mic -> worklet -> gain(0) -> destination
+    sourceNode = audioCtx.createMediaStreamSource(micStream);
+    zeroGain = audioCtx.createGain();
+    zeroGain.gain.value = 0;
+
+    sourceNode.connect(workletNode);
+    workletNode.connect(zeroGain);
+    zeroGain.connect(audioCtx.destination);
+
+    // Push config now that worklet exists
+    pushConfigToWorklet();
+
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+    statusText.textContent = "status: running";
+
+    // ensure mode options set
+    updateStringOptions();
+
+    // kick off rendering loop
+    if (!lastRAF) lastRAF = performance.now();
+    requestAnimationFrame(tick);
+  }
+
+  async function safeStop(){
+    // Stop mic tracks
+    try{
+      if (micStream){
+        for (const tr of micStream.getTracks()) tr.stop();
+      }
+    } catch {}
+    micStream = null;
+
+    // Disconnect graph
+    try{ if (sourceNode) sourceNode.disconnect(); } catch {}
+    try{ if (workletNode) workletNode.disconnect(); } catch {}
+    try{ if (zeroGain) zeroGain.disconnect(); } catch {}
+
+    sourceNode = null;
+    workletNode = null;
+    zeroGain = null;
+
+    // Close context
+    try{
+      if (audioCtx){
+        await audioCtx.close();
+      }
+    } catch {}
+    audioCtx = null;
+
+    latest.freqHz = 0;
+    latest.conf = 0;
+    latest.rmsDb = -120;
+
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+    statusText.textContent = "status: idle";
+  }
+
+  // ---------------------------
+  // Rendering loop
+  // ---------------------------
+  function formatHz(x){
+    if (!isFinite(x) || x <= 0) return "—";
+    if (x < 100) return x.toFixed(2);
+    if (x < 1000) return x.toFixed(1);
+    return x.toFixed(0);
+  }
+
+  function tick(now){
+    const dt = Math.max(0.001, (now - lastRAF) / 1000);
+    lastRAF = now;
+
+    const a4Hz = parseFloat(a4.value);
+    a4Val.textContent = a4Hz.toFixed(1).replace(/\.0$/, "");
+
+    const confGate = parseFloat(confGateInput.value);
+    const rmsGate  = parseFloat(rmsGateInput.value);
+
+    // Update mode display
+    const mode = modeSel.value;
+    modeText.textContent = mode === "auto" ? "Auto (nearest note)" :
+                           mode === "guitar" ? "Guitar (string lock)" :
+                           "Bass (string lock)";
+
+    // Gating
+    const hasPitch = (latest.freqHz > 0) && (latest.conf >= confGate) && (latest.rmsDb >= rmsGate);
+
+    confText.textContent = hasPitch ? latest.conf.toFixed(2) : latest.conf.toFixed(2);
+    rmsText.textContent  = latest.rmsDb.toFixed(1);
+
+    if (!hasPitch){
+      display.hasPitch = false;
+      noteText.textContent = "—";
+      centsText.textContent = "no pitch";
+      centsText.className = "cents mono";
+      freqText.textContent = "freq: — Hz • target: — Hz";
+      needle.style.left = "50%";
+
+      // fade strobe
+      for (let i=0;i<strobeLines.length;i++){
+        strobeLines[i].style.opacity = "0.10";
+      }
+
+      // keep looping while running
+      if (audioCtx) requestAnimationFrame(tick);
+      return;
+    }
+
+    // Determine target
+    let targetHz = 0;
+    let name = "—";
+    let octave = "";
+    if (mode === "auto"){
+      const t = targetForAuto(latest.freqHz, a4Hz);
+      targetHz = t.targetHz;
+      name = t.name;
+      octave = String(t.octave);
+    } else {
+      const idx = parseInt(stringSel.value || "0", 10);
+      const t = targetForStringLock(mode, idx, a4Hz);
+      targetHz = t.targetHz;
+      name = t.name;
+      octave = String(t.octave);
+    }
+
+    const cents = centsOff(latest.freqHz, targetHz);
+
+    display.hasPitch = true;
+    display.cents = cents;
+    display.noteName = name;
+    display.octave = octave;
+    display.targetHz = targetHz;
+    display.freqHz = latest.freqHz;
+
+    // UI updates
+    noteText.textContent = name + octave;
+    freqText.textContent = `freq: ${formatHz(latest.freqHz)} Hz • target: ${formatHz(targetHz)} Hz`;
+
+    const absC = Math.abs(cents);
+    const rounded = (cents >= 0 ? "+" : "") + cents.toFixed(1) + "¢";
+    centsText.textContent = rounded;
+
+    centsText.className = "cents mono " + (absC <= 2 ? "good" : absC <= 8 ? "warn" : "bad");
+
+    // Needle mapping: clamp to +/- 50 cents across the bar
+    const x = clamp(cents, -50, 50);
+    const pct = 50 + (x / 50) * 50; // 0..100
+    needle.style.left = pct.toFixed(1) + "%";
+    needle.style.background = (absC <= 2) ? "var(--accent)" : (absC <= 8 ? "var(--warn)" : "var(--bad)");
+
+    // Strobe: animate phase based on cents (bigger cents -> faster drift)
+    // Direction: sharp -> one way, flat -> opposite.
+    // Scale is tuned to be readable without being nauseating.
+    const speed = clamp(cents, -50, 50) * 0.9; // degrees/sec-ish
+    strobePhase = (strobePhase + speed * dt) % 360;
+
+    // Update strobe line opacity with a "moving highlight"
+    // Use phase to create a traveling brighter spoke effect.
+    const phaseRad = strobePhase * (Math.PI/180);
+    for (let i=0;i<strobeLines.length;i++){
+      // base angle in radians
+      const a = (i * 30) * (Math.PI/180);
+      // brightness peaks when line aligns with phase
+      const d = Math.cos(a - phaseRad);
+      const op = 0.18 + 0.55 * Math.max(0, d);
+      strobeLines[i].style.opacity = op.toFixed(3);
+    }
+
+    if (audioCtx) requestAnimationFrame(tick);
+  }
+
+  // ---------------------------
+  // Events
+  // ---------------------------
+  btnStart.addEventListener("click", start);
+  btnStop.addEventListener("click", async () => {
+    setError(null);
+    await safeStop();
+  });
+
+  function onConfigChange(){
+    // Keep ranges coherent
+    let minF = parseFloat(minFreqInput.value || "70");
+    let maxF = parseFloat(maxFreqInput.value || "1200");
+    if (minF >= maxF){
+      maxF = minF + 50;
+      maxFreqInput.value = String(maxF);
+    }
+    pushConfigToWorklet();
+  }
+
+  modeSel.addEventListener("change", () => {
+    updateStringOptions();
+  });
+
+  [yinWindowSel, yinHopSel, minFreqInput, maxFreqInput, thresholdInput].forEach(el => {
+    el.addEventListener("change", onConfigChange);
+    el.addEventListener("input", onConfigChange);
+  });
+
+  a4.addEventListener("input", () => {
+    a4Val.textContent = parseFloat(a4.value).toFixed(1).replace(/\.0$/, "");
+  });
+
+  // init string selector and labels
+  updateStringOptions();
+})();
+</script>
+</body>
+</html>
