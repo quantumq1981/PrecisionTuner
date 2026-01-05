@@ -304,8 +304,8 @@
 
         <label for="yinWindow">YIN Window Size</label>
         <select id="yinWindow">
-          <option value="2048" selected>2048 (fast / responsive)</option>
-          <option value="4096">4096 (more stable lows)</option>
+          <option value="2048">2048 (fast / responsive)</option>
+          <option value="4096" selected>4096 (more stable lows)</option>
           <option value="8192">8192 (very stable lows, heavier CPU)</option>
         </select>
 
@@ -320,18 +320,18 @@
         <input id="minFreq" type="number" min="20" max="200" step="1" value="70" />
 
         <label for="maxFreq">Max Freq (Hz) for search</label>
-        <input id="maxFreq" type="number" min="200" max="3000" step="10" value="1200" />
+        <input id="maxFreq" type="number" min="200" max="1000" step="10" value="400" />
 
         <label for="threshold">YIN Threshold (CMND)</label>
-        <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.12" />
+        <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.15" />
         <div class="smallPrint mono">Lower threshold = stricter (fewer false positives), higher = more sensitive.</div>
 
         <label for="confGate">Confidence Gate</label>
-        <input id="confGate" type="range" min="0" max="0.9" step="0.01" value="0.15" />
+        <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.94" />
         <div class="smallPrint mono">Below this confidence, UI shows “no pitch”.</div>
 
         <label for="rmsGate">RMS Gate (dBFS approx)</label>
-        <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-65" />
+        <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-50" />
         <div class="smallPrint mono">Below this level, UI shows “no pitch”.</div>
       </div>
     </div>
@@ -459,6 +459,9 @@
     freqHz: 0
   };
 
+  const RMS_HOLD_MS = 100;
+  let rmsGateHoldUntilMs = 0;
+
   // strobe phase
   let strobePhase = 0;
   let lastRAF = 0;
@@ -538,11 +541,11 @@ class YinProcessor extends AudioWorkletProcessor {
     super();
 
     // Defaults (can be updated via port messages)
-    this.windowSize = 2048;
+    this.windowSize = 4096;
     this.hopSize = 256;
     this.minFreq = 70;
-    this.maxFreq = 1200;
-    this.threshold = 0.12;
+    this.maxFreq = 400;
+    this.threshold = 0.15;
 
     this._rebuild();
 
@@ -656,6 +659,24 @@ class YinProcessor extends AudioWorkletProcessor {
     if (tauEstimate === -1){
       return { freq: 0, conf: 0 };
     }
+
+    // Harmonic guard: prefer plausible submultiples when CMND is comparable.
+    const baseTau = tauEstimate;
+    const baseVal = this.cmnd[baseTau];
+    const allow = 0.02;
+
+    let bestTau = baseTau;
+
+    for (let m = 2; m <= 4; m++) {
+      const cand = baseTau * m;
+      if (cand <= maxTau) {
+        const v = this.cmnd[cand];
+        if (v <= baseVal + allow) {
+          bestTau = cand;
+        }
+      }
+    }
+    tauEstimate = bestTau;
 
     // Parabolic interpolation on CMND around tauEstimate
     let betterTau = tauEstimate;
@@ -776,8 +797,8 @@ registerProcessor("yin-processor", YinProcessor);
       windowSize: parseInt(yinWindowSel.value, 10),
       hopSize: parseInt(yinHopSel.value, 10),
       minFreq: clamp(parseFloat(minFreqInput.value || "70"), 20, 2000),
-      maxFreq: clamp(parseFloat(maxFreqInput.value || "1200"), 50, 5000),
-      threshold: clamp(parseFloat(thresholdInput.value || "0.12"), 0.02, 0.5)
+      maxFreq: clamp(parseFloat(maxFreqInput.value || "400"), 50, 1000),
+      threshold: clamp(parseFloat(thresholdInput.value || "0.15"), 0.02, 0.5)
     };
     workletNode.port.postMessage({ type:"config", ...cfg });
   }
@@ -911,6 +932,7 @@ registerProcessor("yin-processor", YinProcessor);
     latest.freqHz = 0;
     latest.conf = 0;
     latest.rmsDb = -120;
+    rmsGateHoldUntilMs = 0;
 
     btnStart.disabled = false;
     btnStop.disabled = true;
@@ -944,7 +966,14 @@ registerProcessor("yin-processor", YinProcessor);
                            "Bass (string lock)";
 
     // Gating
-    const hasPitch = (latest.freqHz > 0) && (latest.conf >= confGate) && (latest.rmsDb >= rmsGate);
+    const nowMs = performance.now();
+
+    if (latest.rmsDb >= rmsGate) {
+      rmsGateHoldUntilMs = nowMs + RMS_HOLD_MS;
+    }
+    const rmsGateOpen = nowMs <= rmsGateHoldUntilMs;
+
+    const hasPitch = (latest.freqHz > 0) && (latest.conf >= confGate) && rmsGateOpen;
 
     confText.textContent = hasPitch ? latest.conf.toFixed(2) : latest.conf.toFixed(2);
     rmsText.textContent  = latest.rmsDb.toFixed(1);
@@ -1041,8 +1070,16 @@ registerProcessor("yin-processor", YinProcessor);
 
   function onConfigChange(){
     // Keep ranges coherent
+    const mode = modeSel.value;
     let minF = parseFloat(minFreqInput.value || "70");
     let maxF = parseFloat(maxFreqInput.value || "1200");
+
+    if (mode === "auto" || mode === "guitar") {
+      minF = 70;
+      maxF = 400;
+      minFreqInput.value = String(minF);
+      maxFreqInput.value = String(maxF);
+    }
     if (minF >= maxF){
       maxF = minF + 50;
       maxFreqInput.value = String(maxF);
@@ -1052,6 +1089,7 @@ registerProcessor("yin-processor", YinProcessor);
 
   modeSel.addEventListener("change", () => {
     updateStringOptions();
+    onConfigChange();
   });
 
   [yinWindowSel, yinHopSel, minFreqInput, maxFreqInput, thresholdInput].forEach(el => {
