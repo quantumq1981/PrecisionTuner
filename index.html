@@ -201,6 +201,27 @@
       box-shadow:0 0 10px rgba(255,255,255,0.18);
       opacity:0.85;
     }
+    .gaugeWrap{ margin-top:12px; display:grid; gap:10px; }
+    .gauge{
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:10px;
+      background:#07110b;
+    }
+    .gauge .label{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .gauge .bar{ margin-top:6px; height:12px; }
+    .gauge .bar .marker{
+      position:absolute;
+      top:-1px;
+      width:4px;
+      height:16px;
+      transform: translateX(-50%);
+      background: var(--accent);
+      border-radius:2px;
+    }
+    .gauge .bar .marker.gate{ background: var(--warn); }
+    .gauge .read{ font-size:12px; color:var(--fg); margin-top:6px; }
+    .valueLabel{ font-weight:700; color:var(--fg); }
     .err{
       border:1px solid rgba(255,59,59,0.35);
       background: rgba(255,59,59,0.08);
@@ -263,7 +284,28 @@
             <div class="v small mono" id="srText">SR: —</div>
             <div class="v small mono" id="statusText">status: idle</div>
             <div class="t" style="margin-top:8px;">Mode</div>
-            <div class="v small mono" id="modeText">Auto (nearest note)</div>
+            <div class="v small mono" id="modeText">Open-String Auto</div>
+          </div>
+        </div>
+
+        <div class="gaugeWrap">
+          <div class="gauge">
+            <div class="label">Confidence Gauge</div>
+            <div class="bar">
+              <div class="mid"></div>
+              <div class="marker gate" id="confGateMarker" style="left:50%"></div>
+              <div class="marker" id="confLiveMarker" style="left:50%"></div>
+            </div>
+            <div class="read mono" id="confGaugeText">live — / gate —</div>
+          </div>
+          <div class="gauge">
+            <div class="label">RMS Gauge</div>
+            <div class="bar">
+              <div class="mid"></div>
+              <div class="marker gate" id="rmsGateMarker" style="left:50%"></div>
+              <div class="marker" id="rmsLiveMarker" style="left:50%"></div>
+            </div>
+            <div class="read mono" id="rmsGaugeText">live — / gate —</div>
           </div>
         </div>
 
@@ -282,9 +324,10 @@
 
         <label for="mode">Tuning Mode</label>
         <select id="mode">
-          <option value="auto" selected>Auto (nearest note)</option>
-          <option value="guitar">Guitar (string lock)</option>
-          <option value="bass">Bass (string lock)</option>
+          <option value="open" selected>Open-String (Auto, E2–E4)</option>
+          <option value="chromatic">Chromatic (Full Fretboard)</option>
+          <option value="guitar">Guitar (String Lock)</option>
+          <option value="bass">Bass (String Lock)</option>
         </select>
 
         <label for="stringSel">String (when locked)</label>
@@ -301,6 +344,15 @@
           <option value="meantone">Quarter-Comma Meantone</option>
           <option value="werckmeister">Werckmeister III</option>
         </select>
+
+        <label for="sweetener">Tuning Sweetener</label>
+        <select id="sweetener">
+          <option value="off" selected>Off (12-TET Targets)</option>
+          <option value="guitar_piano">Guitar Sweetener (Piano-Style Stretch)</option>
+        </select>
+        <div class="smallPrint mono">
+          Applies cent offsets to target frequencies (TechSpec table).
+        </div>
 
         <label for="yinWindow">YIN Window Size</label>
         <select id="yinWindow">
@@ -320,17 +372,23 @@
         <input id="minFreq" type="number" min="20" max="200" step="1" value="70" />
 
         <label for="maxFreq">Max Freq (Hz) for search</label>
-        <input id="maxFreq" type="number" min="200" max="1000" step="10" value="400" />
+        <input id="maxFreq" type="number" min="200" max="1500" step="10" value="400" />
 
-        <label for="threshold">YIN Threshold (CMND)</label>
+        <label for="threshold">
+          YIN Threshold (CMND): <span id="thresholdVal" class="mono valueLabel">0.15</span>
+        </label>
         <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.15" />
         <div class="smallPrint mono">Lower threshold = stricter (fewer false positives), higher = more sensitive.</div>
 
-        <label for="confGate">Confidence Gate</label>
-        <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.94" />
+        <label for="confGate">
+          Confidence Gate: <span id="confGateVal" class="mono valueLabel">0.92</span>
+        </label>
+        <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.92" />
         <div class="smallPrint mono">Below this confidence, UI shows “no pitch”.</div>
 
-        <label for="rmsGate">RMS Gate (dBFS approx)</label>
+        <label for="rmsGate">
+          RMS Gate (dBFS approx): <span id="rmsGateVal" class="mono valueLabel">-50</span>
+        </label>
         <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-50" />
         <div class="smallPrint mono">Below this level, UI shows “no pitch”.</div>
       </div>
@@ -386,6 +444,15 @@
     { name: "1 (G2)", midi: 43 }
   ];
 
+  const GUITAR_SWEETENER_CENTS_BY_MIDI = new Map([
+    [40, -2.0],  // E2
+    [45, -1.0],  // A2
+    [50,  0.0],  // D3
+    [55,  0.0],  // G3
+    [59, -0.5],  // B3
+    [64,  0.0],  // E4
+  ]);
+
   // ---------------------------
   // UI Elements
   // ---------------------------
@@ -409,6 +476,8 @@
   const modeSel = $("mode");
   const stringSel = $("stringSel");
 
+  const sweetenerSel = $("sweetener");
+
   const a4 = $("a4");
   const a4Val = $("a4Val");
   const temperamentSel = $("temperament");
@@ -420,6 +489,16 @@
   const thresholdInput = $("threshold");
   const confGateInput = $("confGate");
   const rmsGateInput = $("rmsGate");
+  const thresholdVal = $("thresholdVal");
+  const confGateVal = $("confGateVal");
+  const rmsGateVal = $("rmsGateVal");
+
+  const confGateMarker = $("confGateMarker");
+  const confLiveMarker = $("confLiveMarker");
+  const confGaugeText = $("confGaugeText");
+  const rmsGateMarker = $("rmsGateMarker");
+  const rmsLiveMarker = $("rmsLiveMarker");
+  const rmsGaugeText = $("rmsGaugeText");
 
   // Strobe lines
   const strobeWrap = document.querySelector(".strobeWrap");
@@ -477,6 +556,8 @@
   }
 
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+  function pct01(x){ return clamp(x, 0, 1) * 100; }
+  function pctDb(x){ return ((clamp(x, -90, -20) + 90) / 70) * 100; }
 
   // ---------------------------
   // Note / target math
@@ -502,7 +583,15 @@
     return t.offsets[noteName] || 0;
   }
 
-  function targetForAuto(freq, a4Hz){
+  function applySweetener(targetHz, midiRounded, mode){
+    if (sweetenerSel.value !== "guitar_piano") return targetHz;
+    if (mode === "chromatic") return targetHz;
+    if (mode !== "guitar" && mode !== "open") return targetHz;
+    const cents = GUITAR_SWEETENER_CENTS_BY_MIDI.get(midiRounded) ?? 0;
+    return targetHz * Math.pow(2, cents / 1200);
+  }
+
+  function targetForAuto(freq, a4Hz, mode){
     const m = freqToMidi(freq, a4Hz);
     const mRound = Math.round(m);
     const { name, octave } = midiToName(mRound);
@@ -511,6 +600,8 @@
     // Apply temperament as cents offset to the target.
     const off = temperamentOffsetCents(name);
     targetHz *= Math.pow(2, off / 1200);
+
+    targetHz = applySweetener(targetHz, mRound, mode);
 
     return { targetHz, name, octave };
   }
@@ -523,6 +614,8 @@
 
     const off = temperamentOffsetCents(name);
     targetHz *= Math.pow(2, off / 1200);
+
+    targetHz = applySweetener(targetHz, item.midi, mode);
 
     return { targetHz, name, octave };
   }
@@ -797,7 +890,7 @@ registerProcessor("yin-processor", YinProcessor);
       windowSize: parseInt(yinWindowSel.value, 10),
       hopSize: parseInt(yinHopSel.value, 10),
       minFreq: clamp(parseFloat(minFreqInput.value || "70"), 20, 2000),
-      maxFreq: clamp(parseFloat(maxFreqInput.value || "400"), 50, 1000),
+      maxFreq: clamp(parseFloat(maxFreqInput.value || "400"), 50, 2000),
       threshold: clamp(parseFloat(thresholdInput.value || "0.15"), 0.02, 0.5)
     };
     workletNode.port.postMessage({ type:"config", ...cfg });
@@ -958,10 +1051,12 @@ registerProcessor("yin-processor", YinProcessor);
 
     const confGate = parseFloat(confGateInput.value);
     const rmsGate  = parseFloat(rmsGateInput.value);
+    updateSliderLabels();
 
     // Update mode display
     const mode = modeSel.value;
-    modeText.textContent = mode === "auto" ? "Auto (nearest note)" :
+    modeText.textContent = mode === "open" ? "Open-String Auto" :
+                           mode === "chromatic" ? "Chromatic" :
                            mode === "guitar" ? "Guitar (string lock)" :
                            "Bass (string lock)";
 
@@ -974,6 +1069,14 @@ registerProcessor("yin-processor", YinProcessor);
     const rmsGateOpen = nowMs <= rmsGateHoldUntilMs;
 
     const hasPitch = (latest.freqHz > 0) && (latest.conf >= confGate) && rmsGateOpen;
+
+    confGateMarker.style.left = pct01(confGate).toFixed(1) + "%";
+    confLiveMarker.style.left = pct01(latest.conf).toFixed(1) + "%";
+    confGaugeText.textContent = `live ${latest.conf.toFixed(2)} / gate ${confGate.toFixed(2)}`;
+
+    rmsGateMarker.style.left = pctDb(rmsGate).toFixed(1) + "%";
+    rmsLiveMarker.style.left = pctDb(latest.rmsDb).toFixed(1) + "%";
+    rmsGaugeText.textContent = `live ${latest.rmsDb.toFixed(1)} / gate ${rmsGate.toFixed(0)}`;
 
     confText.textContent = hasPitch ? latest.conf.toFixed(2) : latest.conf.toFixed(2);
     rmsText.textContent  = latest.rmsDb.toFixed(1);
@@ -1000,8 +1103,8 @@ registerProcessor("yin-processor", YinProcessor);
     let targetHz = 0;
     let name = "—";
     let octave = "";
-    if (mode === "auto"){
-      const t = targetForAuto(latest.freqHz, a4Hz);
+    if (mode === "open" || mode === "chromatic"){
+      const t = targetForAuto(latest.freqHz, a4Hz, mode);
       targetHz = t.targetHz;
       name = t.name;
       octave = String(t.octave);
@@ -1068,15 +1171,33 @@ registerProcessor("yin-processor", YinProcessor);
     await safeStop();
   });
 
+  function updateSliderLabels(){
+    thresholdVal.textContent = (+thresholdInput.value).toFixed(3);
+    confGateVal.textContent = (+confGateInput.value).toFixed(2);
+    rmsGateVal.textContent = (+rmsGateInput.value).toFixed(0);
+  }
+
   function onConfigChange(){
     // Keep ranges coherent
     const mode = modeSel.value;
     let minF = parseFloat(minFreqInput.value || "70");
     let maxF = parseFloat(maxFreqInput.value || "1200");
 
-    if (mode === "auto" || mode === "guitar") {
+    if (mode === "open" || mode === "guitar") {
       minF = 70;
       maxF = 400;
+      minFreqInput.value = String(minF);
+      maxFreqInput.value = String(maxF);
+    }
+    if (mode === "chromatic") {
+      minF = 70;
+      maxF = 1500;
+      minFreqInput.value = String(minF);
+      maxFreqInput.value = String(maxF);
+    }
+    if (mode === "bass") {
+      minF = 30;
+      maxF = 600;
       minFreqInput.value = String(minF);
       maxFreqInput.value = String(maxF);
     }
@@ -1097,12 +1218,18 @@ registerProcessor("yin-processor", YinProcessor);
     el.addEventListener("input", onConfigChange);
   });
 
+  [thresholdInput, confGateInput, rmsGateInput].forEach(el => {
+    el.addEventListener("input", updateSliderLabels);
+  });
+
   a4.addEventListener("input", () => {
     a4Val.textContent = parseFloat(a4.value).toFixed(1).replace(/\.0$/, "");
   });
 
   // init string selector and labels
   updateStringOptions();
+  updateSliderLabels();
+  onConfigChange();
 })();
 </script>
 </body>
