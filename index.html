@@ -591,6 +591,22 @@
           RMS Gate (dB): <span id="rmsGateVal" class="valueLabel">-55</span>
         </label>
         <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-55" />
+
+        <label for="calCents">
+          Calibration (cents): <span id="calCentsVal" class="valueLabel">0.0</span>
+        </label>
+        <input
+          id="calCents"
+          type="number"
+          min="-50"
+          max="50"
+          step="0.1"
+          value="0.0"
+        />
+        <button id="resetCalibration" type="button" class="btn-secondary small-btn">
+          Reset Calibration
+        </button>
+        <div id="calibrationStatus" style="font-size: 12px; color: var(--muted); margin-top: 6px;"></div>
       </div>
     </div>
 
@@ -644,6 +660,11 @@
     { name: "1 (G2)", midi: 43 }
   ];
 
+  // Global pitch calibration (1.0 = no change)
+  // If a specific device shows a consistent offset, this is the place to fix it.
+  let GLOBAL_CALIBRATION_FACTOR = 1.0;
+  const CALIBRATION_STORAGE_KEY = "qzTuner.calibrationCents";
+
   const GUITAR_SWEETENER_CENTS_BY_MIDI = new Map([
     [40, -2.0],  // E2
     [45, -1.0],  // A2
@@ -691,9 +712,13 @@
   const thresholdInput = $("threshold");
   const confGateInput = $("confGate");
   const rmsGateInput = $("rmsGate");
+  const calCentsInput = $("calCents");
+  const resetCalibrationBtn = $("resetCalibration");
   const thresholdVal = $("thresholdVal");
   const confGateVal = $("confGateVal");
   const rmsGateVal = $("rmsGateVal");
+  const calCentsVal = $("calCentsVal");
+  const calibrationStatus = $("calibrationStatus");
 
   const confGateMarker = $("confGateMarker");
   const confLiveMarker = $("confLiveMarker");
@@ -1117,6 +1142,8 @@ class YinProcessor extends AudioWorkletProcessor {
     this.maxFreq = 1200;
     this.threshold = 0.12;
 
+    this.calibrationFactor = 1.0; // global pitch scale, default 1.0
+
     this._rebuild();
 
     this.samplesSince = 0;
@@ -1135,6 +1162,11 @@ class YinProcessor extends AudioWorkletProcessor {
         const maxF = +msg.maxFreq || this.maxFreq;
         const th = +msg.threshold || this.threshold;
 
+        // NEW: calibration factor (default 1.0 if not provided or invalid)
+        const cf = (typeof msg.calibrationFactor === "number" && isFinite(msg.calibrationFactor) && msg.calibrationFactor > 0)
+          ? msg.calibrationFactor
+          : this.calibrationFactor;
+
         const needRebuild =
           ws !== this.windowSize ||
           hs !== this.hopSize ||
@@ -1146,6 +1178,7 @@ class YinProcessor extends AudioWorkletProcessor {
         this.minFreq = minF;
         this.maxFreq = maxF;
         this.threshold = th;
+        this.calibrationFactor = cf;
 
         if (needRebuild) this._rebuild();
       }
@@ -1163,12 +1196,14 @@ class YinProcessor extends AudioWorkletProcessor {
 
     const sr = sampleRate;
 
+    // FIXED: Prevent tau overflow / invalid ranges for very low or high frequencies
     this.minTau = Math.max(4, Math.floor(sr / Math.max(this.maxFreq, 1)));
     this.maxTau = Math.min(
       this.windowSize - 4,
       Math.floor(sr / Math.max(this.minFreq, 0.1))
     );
 
+    // Ensure a valid tau range
     if (this.minTau >= this.maxTau) {
       this.minTau = 4;
       this.maxTau = Math.min(this.windowSize - 4, 1024);
@@ -1247,24 +1282,26 @@ class YinProcessor extends AudioWorkletProcessor {
       return { freq: 0, conf: 0 };
     }
 
-    // **STRICT HARMONIC GUARD**
+    // Harmonic guard (Fixed)
+    // We only accept subharmonics if they are *significantly* better
     const baseTau = tauEstimate;
     let bestTau = baseTau;
     let bestVal = this.cmnd[baseTau];
 
-    const STRICT_IMPROVEMENT = 0.08;
+    // Require clear improvement and a very low CMND value
+    const STRICT_IMPROVEMENT = 0.08; // 8% better than base
 
-    for (let m = 2; m <= 3; m++) {
+    for (let m = 2; m <= 3; m++) {  // only check 2x and 3x
       const cand = baseTau * m;
       if (cand <= maxTau) {
         const v = this.cmnd[cand];
-
         if (v < bestVal - STRICT_IMPROVEMENT && v < 0.10) {
           bestTau = cand;
           bestVal = v;
         }
       }
     }
+
     tauEstimate = bestTau;
 
     let betterTau = tauEstimate;
@@ -1330,9 +1367,11 @@ class YinProcessor extends AudioWorkletProcessor {
         const rms = Math.sqrt(this.rms2);
         const rmsDb = 20 * Math.log10(rms + 1e-12);
 
+        const calibratedFreq = est.freq * this.calibrationFactor;
+
         this.port.postMessage({
           type: "result",
-          freq: est.freq,
+          freq: calibratedFreq,
           conf: est.conf,
           rmsDb: rmsDb,
           sr: sampleRate,
@@ -1382,7 +1421,8 @@ registerProcessor("yin-processor", YinProcessor);
       hopSize: parseInt(yinHopSel.value, 10),
       minFreq: clamp(parseFloat(minFreqInput.value || "70"), 16, 2000),
       maxFreq: clamp(parseFloat(maxFreqInput.value || "1200"), 50, 2000),
-      threshold: clamp(parseFloat(thresholdInput.value || "0.12"), 0.02, 0.5)
+      threshold: clamp(parseFloat(thresholdInput.value || "0.12"), 0.02, 0.5),
+      calibrationFactor: GLOBAL_CALIBRATION_FACTOR
     };
     workletNode.port.postMessage({ type:"config", ...cfg });
   }
@@ -1492,6 +1532,10 @@ registerProcessor("yin-processor", YinProcessor);
         latest.conf = msg.conf || 0;
         latest.rmsDb = msg.rmsDb ?? -120;
         latest.ts = msg.t || 0;
+
+        if (latest.conf > 0.95) {
+          console.debug("[YIN] strong lock:", latest.freqHz.toFixed(2), "Hz");
+        }
 
         srText.textContent = "" + (msg.sr ? Math.round(msg.sr) : "—");
       }
@@ -1732,6 +1776,69 @@ registerProcessor("yin-processor", YinProcessor);
     thresholdVal.textContent = (+thresholdInput.value).toFixed(3);
     confGateVal.textContent = (+confGateInput.value).toFixed(2);
     rmsGateVal.textContent = (+rmsGateInput.value).toFixed(0);
+    calCentsVal.textContent = (+calCentsInput.value || 0).toFixed(1);
+  }
+
+  function updateCalibrationStatus(message = ""){
+    if (!calibrationStatus) return;
+    calibrationStatus.textContent = message;
+  }
+
+  function loadPersistedCalibration(){
+    try {
+      const raw = localStorage.getItem(CALIBRATION_STORAGE_KEY);
+      if (raw !== null) {
+        const cents = parseFloat(raw);
+        if (isFinite(cents)) {
+          calCentsInput.value = clamp(cents, -50, 50).toFixed(1);
+        }
+      }
+    } catch (err) {
+      console.error("Calibration load failed:", err);
+      updateCalibrationStatus("Calibration not persisted; defaults applied.");
+    }
+  }
+
+  function onCalibrationChange(){
+    let cents = parseFloat(calCentsInput.value || "0");
+    if (!isFinite(cents)) cents = 0;
+    cents = clamp(cents, -50, 50);
+
+    calCentsInput.value = cents.toFixed(1);
+    calCentsVal.textContent = cents.toFixed(1);
+
+    GLOBAL_CALIBRATION_FACTOR = Math.pow(2, cents / 1200);
+
+    updateCalibrationStatus("");
+
+    try {
+      localStorage.setItem(
+        CALIBRATION_STORAGE_KEY,
+        calCentsInput.value
+      );
+    } catch (err) {
+      console.error("Calibration save failed:", err);
+      updateCalibrationStatus("Calibration not saved; using temporary value.");
+    }
+
+    pushConfigToWorklet();
+  }
+
+  function resetCalibration(){
+    calCentsInput.value = "0.0";
+    calCentsVal.textContent = "0.0";
+    GLOBAL_CALIBRATION_FACTOR = 1.0;
+
+    updateCalibrationStatus("");
+
+    try {
+      localStorage.removeItem(CALIBRATION_STORAGE_KEY);
+    } catch (err) {
+      console.error("Calibration clear failed:", err);
+      updateCalibrationStatus("Could not clear saved calibration; using neutral value.");
+    }
+
+    pushConfigToWorklet();
   }
 
   function onConfigChange(){
@@ -1750,8 +1857,8 @@ registerProcessor("yin-processor", YinProcessor);
       minF = 70;
       maxF = 400;
     } else if (mode === "bass") {
-      minF = 16;   // **EXTENDED BASS SUPPORT**
-      maxF = 1200;
+      minF = 30;
+      maxF = 600;
     }
     
     minFreqInput.value = String(minF);
@@ -1784,6 +1891,10 @@ registerProcessor("yin-processor", YinProcessor);
     el.addEventListener("input", updateSliderLabels);
   });
 
+  calCentsInput.addEventListener("change", onCalibrationChange);
+  calCentsInput.addEventListener("input", onCalibrationChange);
+  resetCalibrationBtn.addEventListener("click", resetCalibration);
+
   a4.addEventListener("input", () => {
     a4Val.textContent = parseFloat(a4.value).toFixed(1).replace(/\.0$/, "");
   });
@@ -1795,6 +1906,8 @@ registerProcessor("yin-processor", YinProcessor);
   // Init
   updateStringOptions();
   updateSliderLabels();
+  loadPersistedCalibration();
+  onCalibrationChange();
   onConfigChange();
   verifyCalibration(440);
 })();
