@@ -606,6 +606,7 @@
         <button id="resetCalibration" type="button" class="btn-secondary small-btn">
           Reset Calibration
         </button>
+        <div id="calibrationStatus" style="font-size: 12px; color: var(--muted); margin-top: 6px;"></div>
       </div>
     </div>
 
@@ -717,6 +718,7 @@
   const confGateVal = $("confGateVal");
   const rmsGateVal = $("rmsGateVal");
   const calCentsVal = $("calCentsVal");
+  const calibrationStatus = $("calibrationStatus");
 
   const confGateMarker = $("confGateMarker");
   const confLiveMarker = $("confLiveMarker");
@@ -1777,6 +1779,11 @@ registerProcessor("yin-processor", YinProcessor);
     calCentsVal.textContent = (+calCentsInput.value || 0).toFixed(1);
   }
 
+  function updateCalibrationStatus(message = ""){
+    if (!calibrationStatus) return;
+    calibrationStatus.textContent = message;
+  }
+
   function loadPersistedCalibration(){
     try {
       const raw = localStorage.getItem(CALIBRATION_STORAGE_KEY);
@@ -1787,7 +1794,8 @@ registerProcessor("yin-processor", YinProcessor);
         }
       }
     } catch (err) {
-      console.warn("Calibration load failed:", err);
+      console.error("Calibration load failed:", err);
+      updateCalibrationStatus("Calibration not persisted; defaults applied.");
     }
   }
 
@@ -1801,13 +1809,16 @@ registerProcessor("yin-processor", YinProcessor);
 
     GLOBAL_CALIBRATION_FACTOR = Math.pow(2, cents / 1200);
 
+    updateCalibrationStatus("");
+
     try {
       localStorage.setItem(
         CALIBRATION_STORAGE_KEY,
         calCentsInput.value
       );
     } catch (err) {
-      console.warn("Calibration save failed:", err);
+      console.error("Calibration save failed:", err);
+      updateCalibrationStatus("Calibration not saved; using temporary value.");
     }
 
     pushConfigToWorklet();
@@ -1818,10 +1829,13 @@ registerProcessor("yin-processor", YinProcessor);
     calCentsVal.textContent = "0.0";
     GLOBAL_CALIBRATION_FACTOR = 1.0;
 
+    updateCalibrationStatus("");
+
     try {
       localStorage.removeItem(CALIBRATION_STORAGE_KEY);
     } catch (err) {
-      console.warn("Calibration clear failed:", err);
+      console.error("Calibration clear failed:", err);
+      updateCalibrationStatus("Could not clear saved calibration; using neutral value.");
     }
 
     pushConfigToWorklet();
