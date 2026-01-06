@@ -307,149 +307,147 @@
       Extended Range • Adaptive Filtering • Smart Guards • Auto-Recovery • Zero Edge Cases
     </div>
 
-```
-<div class="grid">
-  <div class="panel">
-    <div class="big">
-      <div class="readout">
-        <div class="note mono" id="noteText">—</div>
-        <div class="hz mono" id="freqText">freq: — Hz • target: — Hz</div>
-        <div style="margin-top:10px;">
-          <div class="cents mono" id="centsText">—</div>
-          <div class="bar">
-            <div class="mid"></div>
-            <div class="needle" id="needle" style="left:50%"></div>
+    <div class="grid">  <!-- REMOVED THE BACKTICKS FROM HERE -->
+      <div class="panel">
+        <div class="big">
+          <div class="readout">
+            <div class="note mono" id="noteText">—</div>
+            <div class="hz mono" id="freqText">freq: — Hz • target: — Hz</div>
+            <div style="margin-top:10px;">
+              <div class="cents mono" id="centsText">—</div>
+              <div class="bar">
+                <div class="mid"></div>
+                <div class="needle" id="needle" style="left:50%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="strobeWrap" aria-label="strobe visualization">
+            <div class="centerDot"></div>
           </div>
         </div>
-      </div>
 
-      <div class="strobeWrap" aria-label="strobe visualization">
-        <div class="centerDot"></div>
-      </div>
-    </div>
-
-    <div class="kpi">
-      <div class="box">
-        <div class="t">Confidence <span class="lockIndicator" id="lockIndicator"></span></div>
-        <div class="v mono" id="confText">—</div>
-        <div class="t" style="margin-top:6px;">RMS (dBFS approx)</div>
-        <div class="v small mono" id="rmsText">—</div>
-      </div>
-      <div class="box">
-        <div class="t">System Status</div>
-        <div class="v small mono" id="srText">SR: —</div>
-        <div class="v small mono" id="statusText">idle</div>
-        <div class="t" style="margin-top:8px;">Mode</div>
-        <div class="v small mono" id="modeText">Open-String Auto</div>
-      </div>
-    </div>
-
-    <div class="gaugeWrap">
-      <div class="gauge">
-        <div class="label">Confidence Gauge (Adaptive Buffer: <span id="bufferSize">9</span>)</div>
-        <div class="bar">
-          <div class="mid"></div>
-          <div class="marker gate" id="confGateMarker" style="left:50%"></div>
-          <div class="marker" id="confLiveMarker" style="left:50%"></div>
+        <div class="kpi">
+          <div class="box">
+            <div class="t">Confidence <span class="lockIndicator" id="lockIndicator"></span></div>
+            <div class="v mono" id="confText">—</div>
+            <div class="t" style="margin-top:6px;">RMS (dBFS approx)</div>
+            <div class="v small mono" id="rmsText">—</div>
+          </div>
+          <div class="box">
+            <div class="t">System Status</div>
+            <div class="v small mono" id="srText">SR: —</div>
+            <div class="v small mono" id="statusText">idle</div>
+            <div class="t" style="margin-top:8px;">Mode</div>
+            <div class="v small mono" id="modeText">Open-String Auto</div>
+          </div>
         </div>
-        <div class="read mono" id="confGaugeText">live — / gate —</div>
-      </div>
-      <div class="gauge">
-        <div class="label">RMS Gauge (Quality: <span id="qualityScore">—</span>)</div>
-        <div class="bar">
-          <div class="mid"></div>
-          <div class="marker gate" id="rmsGateMarker" style="left:50%"></div>
-          <div class="marker" id="rmsLiveMarker" style="left:50%"></div>
+
+        <div class="gaugeWrap">
+          <div class="gauge">
+            <div class="label">Confidence Gauge (Adaptive Buffer: <span id="bufferSize">9</span>)</div>
+            <div class="bar">
+              <div class="mid"></div>
+              <div class="marker gate" id="confGateMarker" style="left:50%"></div>
+              <div class="marker" id="confLiveMarker" style="left:50%"></div>
+            </div>
+            <div class="read mono" id="confGaugeText">live — / gate —</div>
+          </div>
+          <div class="gauge">
+            <div class="label">RMS Gauge (Quality: <span id="qualityScore">—</span>)</div>
+            <div class="bar">
+              <div class="mid"></div>
+              <div class="marker gate" id="rmsGateMarker" style="left:50%"></div>
+              <div class="marker" id="rmsLiveMarker" style="left:50%"></div>
+            </div>
+            <div class="read mono" id="rmsGaugeText">live — / gate —</div>
+          </div>
         </div>
-        <div class="read mono" id="rmsGaugeText">live — / gate —</div>
+
+        <div class="err" id="errBox"></div>
+
+        <div class="hint">
+          <strong>v23.1 EDGE-PROOF:</strong> 16Hz-1500Hz range, adaptive smoothing, frequency lock, signal validation, auto-recovery, calibration verification.
+        </div>
       </div>
-    </div>
 
-    <div class="err" id="errBox"></div>
+      <div class="panel">
+        <div class="row">
+          <button class="primary" id="btnStart">Start</button>
+          <button class="danger" id="btnStop" disabled>Stop</button>
+        </div>
 
-    <div class="hint">
-      <strong>v23.1 EDGE-PROOF:</strong> 16Hz-1500Hz range, adaptive smoothing, frequency lock, signal validation, auto-recovery, calibration verification.
-    </div>
-  </div>
+        <label for="mode">Tuning Mode</label>
+        <select id="mode">
+          <option value="open" selected>Open-String (Auto, E2–E4)</option>
+          <option value="chromatic">Chromatic (Full Fretboard)</option>
+          <option value="guitar">Guitar (String Lock)</option>
+          <option value="bass">Bass (String Lock, 16Hz+)</option>
+        </select>
 
-  <div class="panel">
-    <div class="row">
-      <button class="primary" id="btnStart">Start</button>
-      <button class="danger" id="btnStop" disabled>Stop</button>
-    </div>
+        <label for="stringSel">String (when locked)</label>
+        <select id="stringSel" disabled></select>
 
-    <label for="mode">Tuning Mode</label>
-    <select id="mode">
-      <option value="open" selected>Open-String (Auto, E2–E4)</option>
-      <option value="chromatic">Chromatic (Full Fretboard)</option>
-      <option value="guitar">Guitar (String Lock)</option>
-      <option value="bass">Bass (String Lock, 16Hz+)</option>
-    </select>
+        <label for="a4">A4 Calibration (Hz): <span class="mono" id="a4Val">440</span></label>
+        <input id="a4" type="range" min="430" max="450" step="0.1" value="440" />
 
-    <label for="stringSel">String (when locked)</label>
-    <select id="stringSel" disabled></select>
+        <label for="temperament">Temperament</label>
+        <select id="temperament">
+          <option value="equal" selected>Equal Temperament</option>
+          <option value="just">Just Intonation (C)</option>
+          <option value="pythagorean">Pythagorean</option>
+          <option value="meantone">Quarter-Comma Meantone</option>
+          <option value="werckmeister">Werckmeister III</option>
+        </select>
 
-    <label for="a4">A4 Calibration (Hz): <span class="mono" id="a4Val">440</span></label>
-    <input id="a4" type="range" min="430" max="450" step="0.1" value="440" />
+        <label for="sweetener">Tuning Sweetener</label>
+        <select id="sweetener">
+          <option value="off" selected>Off (12-TET Targets)</option>
+          <option value="guitar_piano">Guitar Sweetener (Piano-Style)</option>
+        </select>
+        <div class="smallPrint mono">
+          Piano-style stretch tuning for harmonic sweetness.
+        </div>
 
-    <label for="temperament">Temperament</label>
-    <select id="temperament">
-      <option value="equal" selected>Equal Temperament</option>
-      <option value="just">Just Intonation (C)</option>
-      <option value="pythagorean">Pythagorean</option>
-      <option value="meantone">Quarter-Comma Meantone</option>
-      <option value="werckmeister">Werckmeister III</option>
-    </select>
+        <label for="yinWindow">YIN Window Size</label>
+        <select id="yinWindow">
+          <option value="2048">2048 (fast / high notes)</option>
+          <option value="4096" selected>4096 (balanced)</option>
+          <option value="8192">8192 (bass / low notes)</option>
+        </select>
 
-    <label for="sweetener">Tuning Sweetener</label>
-    <select id="sweetener">
-      <option value="off" selected>Off (12-TET Targets)</option>
-      <option value="guitar_piano">Guitar Sweetener (Piano-Style)</option>
-    </select>
-    <div class="smallPrint mono">
-      Piano-style stretch tuning for harmonic sweetness.
-    </div>
+        <label for="yinHop">Analysis Hop (samples)</label>
+        <select id="yinHop">
+          <option value="128">128 (high update rate)</option>
+          <option value="256" selected>256 (balanced)</option>
+          <option value="512">512 (lower CPU)</option>
+        </select>
 
-    <label for="yinWindow">YIN Window Size</label>
-    <select id="yinWindow">
-      <option value="2048">2048 (fast / high notes)</option>
-      <option value="4096" selected>4096 (balanced)</option>
-      <option value="8192">8192 (bass / low notes)</option>
-    </select>
+        <label for="minFreq">Min Freq (Hz)</label>
+        <input id="minFreq" type="number" min="16" max="200" step="1" value="70" />
 
-    <label for="yinHop">Analysis Hop (samples)</label>
-    <select id="yinHop">
-      <option value="128">128 (high update rate)</option>
-      <option value="256" selected>256 (balanced)</option>
-      <option value="512">512 (lower CPU)</option>
-    </select>
+        <label for="maxFreq">Max Freq (Hz)</label>
+        <input id="maxFreq" type="number" min="200" max="1500" step="10" value="1200" />
 
-    <label for="minFreq">Min Freq (Hz)</label>
-    <input id="minFreq" type="number" min="16" max="200" step="1" value="70" />
+        <label for="threshold">
+          YIN Threshold (CMND): <span id="thresholdVal" class="mono valueLabel">0.12</span>
+        </label>
+        <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.12" />
+        <div class="smallPrint mono">Lower = stricter, higher = more sensitive.</div>
 
-    <label for="maxFreq">Max Freq (Hz)</label>
-    <input id="maxFreq" type="number" min="200" max="1500" step="10" value="1200" />
+        <label for="confGate">
+          Confidence Gate: <span id="confGateVal" class="mono valueLabel">0.70</span>
+        </label>
+        <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.70" />
+        <div class="smallPrint mono">Minimum confidence to display pitch.</div>
 
-    <label for="threshold">
-      YIN Threshold (CMND): <span id="thresholdVal" class="mono valueLabel">0.12</span>
-    </label>
-    <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.12" />
-    <div class="smallPrint mono">Lower = stricter, higher = more sensitive.</div>
-
-    <label for="confGate">
-      Confidence Gate: <span id="confGateVal" class="mono valueLabel">0.70</span>
-    </label>
-    <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.70" />
-    <div class="smallPrint mono">Minimum confidence to display pitch.</div>
-
-    <label for="rmsGate">
-      RMS Gate (dBFS): <span id="rmsGateVal" class="mono valueLabel">-55</span>
-    </label>
-    <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-55" />
-    <div class="smallPrint mono">Minimum signal level to detect pitch.</div>
-  </div>
-</div>
-```
+        <label for="rmsGate">
+          RMS Gate (dBFS): <span id="rmsGateVal" class="mono valueLabel">-55</span>
+        </label>
+        <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-55" />
+        <div class="smallPrint mono">Minimum signal level to detect pitch.</div>
+      </div>
+    </div>  <!-- REMOVED THE BACKTICKS FROM HERE TOO -->
 
   </div>
 
