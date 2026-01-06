@@ -743,6 +743,8 @@
   let rmsGateHoldUntilMs = 0;
 
   let strobePhase = 0;
+  let lastStrobeUpdate = 0;
+  const STROBE_UPDATE_INTERVAL = 16;
   let lastRAF = 0;
 
   // **ADAPTIVE MEDIAN FILTER**
@@ -752,8 +754,10 @@
   // **FREQUENCY LOCK MECHANISM**
   let lockedFrequency = 0;
   let lockConfidence = 0;
-  const LOCK_THRESHOLD = 0.85;
+  let lockStartTime = 0;
+  const LOCK_THRESHOLD = 0.90;
   const RELEASE_THRESHOLD = 0.6;
+  const MAX_LOCK_DURATION = 10000;
 
   // **MODE TRANSITION STATE**
   let modeTransitionActive = false;
@@ -762,7 +766,7 @@
 
   // **ERROR RECOVERY**
   let errorCount = 0;
-  const MAX_ERRORS = 10;
+  const MAX_ERRORS = 3;
 
   // **SIGNAL QUALITY**
   let lastQualityScore = 0;
@@ -780,12 +784,120 @@
   function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
   function pct01(x){ return clamp(x, 0, 1) * 100; }
   function pctDb(x){ return ((clamp(x, -90, -20) + 90) / 70) * 100; }
+
+  let pendingUpdates = {
+    confGate: null,
+    confLive: null,
+    confText: null,
+    rmsGate: null,
+    rmsLive: null,
+    rmsText: null,
+    confValue: null,
+    rmsValue: null,
+    freq: null,
+    note: null,
+    cents: null,
+    centsClass: null,
+    needlePct: null,
+    needleColor: null,
+    needleShadow: null
+  };
+
+  function scheduleDOMUpdate(partial){
+    Object.assign(pendingUpdates, partial);
+  }
+
+  function batchUpdateDOM(){
+    if (pendingUpdates.confGate !== null) {
+      confGateMarker.style.left = pendingUpdates.confGate;
+      confLiveMarker.style.left = pendingUpdates.confLive;
+      confGaugeText.textContent = pendingUpdates.confText;
+    }
+
+    if (pendingUpdates.rmsGate !== null) {
+      rmsGateMarker.style.left = pendingUpdates.rmsGate;
+      rmsLiveMarker.style.left = pendingUpdates.rmsLive;
+      rmsGaugeText.textContent = pendingUpdates.rmsText;
+    }
+
+    if (pendingUpdates.confValue !== null) {
+      confText.textContent = pendingUpdates.confValue;
+    }
+
+    if (pendingUpdates.rmsValue !== null) {
+      rmsText.textContent = pendingUpdates.rmsValue;
+    }
+
+    if (pendingUpdates.freq !== null) {
+      freqText.textContent = pendingUpdates.freq;
+      noteText.textContent = pendingUpdates.note;
+      centsText.textContent = pendingUpdates.cents;
+      centsText.className = pendingUpdates.centsClass;
+    }
+
+    if (pendingUpdates.needlePct !== null) {
+      needle.style.left = pendingUpdates.needlePct;
+      needle.style.background = pendingUpdates.needleColor;
+      needle.style.boxShadow = pendingUpdates.needleShadow;
+    }
+
+    pendingUpdates = {
+      confGate: null,
+      confLive: null,
+      confText: null,
+      rmsGate: null,
+      rmsLive: null,
+      rmsText: null,
+      confValue: null,
+      rmsValue: null,
+      freq: null,
+      note: null,
+      cents: null,
+      centsClass: null,
+      needlePct: null,
+      needleColor: null,
+      needleShadow: null
+    };
+  }
   
-  function median(arr){
+  function fastMedian(arr) {
     if (!arr.length) return 0;
-    const a = arr.slice().sort((x,y)=>x-y);
-    const mid = (a.length / 2) | 0;
-    return (a.length % 2) ? a[mid] : (a[mid-1] + a[mid]) / 2;
+    if (arr.length === 1) return arr[0];
+    if (arr.length <= 3) {
+      const sorted = arr.slice().sort((a, b) => a - b);
+      return sorted[Math.floor(sorted.length / 2)];
+    }
+
+    const k = Math.floor(arr.length / 2);
+    const copy = arr.slice();
+    return quickSelect(copy, 0, copy.length - 1, k);
+  }
+
+  function quickSelect(arr, left, right, k) {
+    while (true) {
+      if (left === right) return arr[left];
+
+      const pivotIndex = partition(arr, left, right);
+      if (k === pivotIndex) return arr[k];
+      if (k < pivotIndex) {
+        right = pivotIndex - 1;
+      } else {
+        left = pivotIndex + 1;
+      }
+    }
+  }
+
+  function partition(arr, left, right) {
+    const pivot = arr[right];
+    let i = left;
+    for (let j = left; j < right; j++) {
+      if (arr[j] <= pivot) {
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+        i++;
+      }
+    }
+    [arr[i], arr[right]] = [arr[right], arr[i]];
+    return i;
   }
 
   // ---------------------------
@@ -811,17 +923,27 @@
   // **FREQUENCY LOCK**
   // ---------------------------
   function updateFrequencyLock(freq, conf){
-    if (conf >= LOCK_THRESHOLD && lockedFrequency > 0 && Math.abs(freq - lockedFrequency) < 5) {
+    const now = performance.now();
+
+    if (conf >= LOCK_THRESHOLD && lockedFrequency > 0 &&
+        Math.abs(freq - lockedFrequency) < 5) {
+
       lockedFrequency = 0.9 * lockedFrequency + 0.1 * freq;
       lockConfidence = Math.min(1, lockConfidence + 0.1);
+
     } else if (conf >= LOCK_THRESHOLD) {
       lockedFrequency = freq;
       lockConfidence = 0.8;
-    } else if (conf < RELEASE_THRESHOLD) {
+      lockStartTime = now;
+
+    } else if (conf < RELEASE_THRESHOLD || (lockStartTime && (now - lockStartTime > MAX_LOCK_DURATION))) {
       lockConfidence = Math.max(0, lockConfidence - 0.2);
+      if (lockConfidence <= 0) {
+        lockedFrequency = 0;
+        lockStartTime = 0;
+      }
     }
-    
-    // Update lock indicator
+
     if (lockConfidence > 0.7) {
       lockIndicator.classList.add("active");
       return lockedFrequency;
@@ -1040,8 +1162,17 @@ class YinProcessor extends AudioWorkletProcessor {
     this.filled = 0;
 
     const sr = sampleRate;
-    this.minTau = Math.max(2, Math.floor(sr / Math.max(this.maxFreq, 1)));
-    this.maxTau = Math.min(this.windowSize - 2, Math.floor(sr / Math.max(this.minFreq, 1)));
+
+    this.minTau = Math.max(4, Math.floor(sr / Math.max(this.maxFreq, 1)));
+    this.maxTau = Math.min(
+      this.windowSize - 4,
+      Math.floor(sr / Math.max(this.minFreq, 0.1))
+    );
+
+    if (this.minTau >= this.maxTau) {
+      this.minTau = 4;
+      this.maxTau = Math.min(this.windowSize - 4, 1024);
+    }
 
     const len = this.maxTau + 1;
     this.diff = new Float32Array(len);
@@ -1116,19 +1247,19 @@ class YinProcessor extends AudioWorkletProcessor {
       return { freq: 0, conf: 0 };
     }
 
-    // **SMART HARMONIC GUARD with adaptive IMPROVE**
-    const complexity = this._estimateComplexity();
-    const IMPROVE = this._calculateDynamicImprovement(complexity);
-    
+    // **STRICT HARMONIC GUARD**
     const baseTau = tauEstimate;
     let bestTau = baseTau;
     let bestVal = this.cmnd[baseTau];
 
-    for (let m = 2; m <= 4; m++) {
+    const STRICT_IMPROVEMENT = 0.08;
+
+    for (let m = 2; m <= 3; m++) {
       const cand = baseTau * m;
       if (cand <= maxTau) {
         const v = this.cmnd[cand];
-        if (v < bestVal - IMPROVE) {
+
+        if (v < bestVal - STRICT_IMPROVEMENT && v < 0.10) {
           bestTau = cand;
           bestVal = v;
         }
@@ -1271,7 +1402,9 @@ registerProcessor("yin-processor", YinProcessor);
     audioCtx = new AudioCtx({ latencyHint: "interactive" });
 
     if (audioCtx.state !== "running"){
-      try { await audioCtx.resume(); } catch {}
+      try { await audioCtx.resume(); } catch (err) {
+        console.error("Failed to resume audio context", err);
+      }
     }
 
     if (!audioCtx.audioWorklet){
@@ -1296,6 +1429,14 @@ registerProcessor("yin-processor", YinProcessor);
     }
     micStream = stream;
 
+    if (micStream) {
+      micStream.addEventListener('inactive', () => {
+        console.warn('Microphone stream became inactive');
+        setError("Microphone access lost. Please check your settings.");
+        safeStop();
+      });
+    }
+
     try{
       const moduleURL = makeWorkletModuleURL();
       await audioCtx.audioWorklet.addModule(moduleURL);
@@ -1319,12 +1460,28 @@ registerProcessor("yin-processor", YinProcessor);
     }
 
     workletReady = false;
-    
+    let workletReadyTimeout = setTimeout(() => {
+      if (!workletReady) {
+        setError("Audio worklet failed to initialize. Try refreshing the page.");
+        safeStop();
+      }
+    }, 5000);
+
+    workletNode.onprocessorerror = (error) => {
+      console.error('Worklet processor error:', error);
+      setError("Audio processing error. Attempting recovery...");
+      errorCount++;
+      if (errorCount <= MAX_ERRORS) {
+        setTimeout(attemptRecovery, 2000);
+      }
+    };
+
     workletNode.port.onmessage = (e) => {
       const msg = e.data || {};
-      
+
       if (msg.type === "ready") {
         workletReady = true;
+        clearTimeout(workletReadyTimeout);
         pushConfigToWorklet();
         console.log("Worklet ready ✓");
         return;
@@ -1363,12 +1520,14 @@ registerProcessor("yin-processor", YinProcessor);
       if (micStream){
         for (const tr of micStream.getTracks()) tr.stop();
       }
-    } catch {}
+    } catch (err){
+      console.error('Error stopping microphone tracks', err);
+    }
     micStream = null;
 
-    try{ if (sourceNode) sourceNode.disconnect(); } catch {}
-    try{ if (workletNode) workletNode.disconnect(); } catch {}
-    try{ if (zeroGain) zeroGain.disconnect(); } catch {}
+    try{ if (sourceNode) sourceNode.disconnect(); } catch (err){ console.error('Error disconnecting sourceNode', err); }
+    try{ if (workletNode) workletNode.disconnect(); } catch (err){ console.error('Error disconnecting workletNode', err); }
+    try{ if (zeroGain) zeroGain.disconnect(); } catch (err){ console.error('Error disconnecting zeroGain', err); }
 
     sourceNode = null;
     workletNode = null;
@@ -1379,7 +1538,9 @@ registerProcessor("yin-processor", YinProcessor);
       if (audioCtx){
         await audioCtx.close();
       }
-    } catch {}
+    } catch (err){
+      console.error('Error closing audio context', err);
+    }
     audioCtx = null;
 
     latest.freqHz = 0;
@@ -1408,7 +1569,6 @@ registerProcessor("yin-processor", YinProcessor);
   }
 
   function tick(now){
-    const dt = Math.max(0.001, (now - lastRAF) / 1000);
     lastRAF = now;
 
     const a4Hz = parseFloat(a4.value);
@@ -1452,7 +1612,7 @@ registerProcessor("yin-processor", YinProcessor);
       
       FREQ_HISTORY.push(freq);
       if (FREQ_HISTORY.length > HISTORY_N) FREQ_HISTORY.shift();
-      freq = median(FREQ_HISTORY);
+      freq = fastMedian(FREQ_HISTORY);
       
       freq = updateFrequencyLock(freq, latest.conf);
     } else {
@@ -1462,29 +1622,39 @@ registerProcessor("yin-processor", YinProcessor);
     }
 
     // **GAUGE SYNC**
-    confGateMarker.style.left = pct01(confGate).toFixed(1) + "%";
-    confLiveMarker.style.left = pct01(latest.conf).toFixed(1) + "%";
-    confGaugeText.textContent = `(${latest.conf.toFixed(2)} / ${confGate.toFixed(2)})`;
-
-    rmsGateMarker.style.left = pctDb(rmsGate).toFixed(1) + "%";
-    rmsLiveMarker.style.left = pctDb(latest.rmsDb).toFixed(1) + "%";
-    rmsGaugeText.textContent = `(${latest.rmsDb.toFixed(0)}dB)`;
-
-    confText.textContent = latest.conf.toFixed(2);
-    rmsText.textContent  = latest.rmsDb.toFixed(1);
+    scheduleDOMUpdate({
+      confGate: pct01(confGate).toFixed(1) + "%",
+      confLive: pct01(latest.conf).toFixed(1) + "%",
+      confText: `(${latest.conf.toFixed(2)} / ${confGate.toFixed(2)})`,
+      rmsGate: pctDb(rmsGate).toFixed(1) + "%",
+      rmsLive: pctDb(latest.rmsDb).toFixed(1) + "%",
+      rmsText: `(${latest.rmsDb.toFixed(0)}dB)`,
+      confValue: latest.conf.toFixed(2),
+      rmsValue: latest.rmsDb.toFixed(1)
+    });
 
     if (!hasPitch || !quality.valid){
       display.hasPitch = false;
-      noteText.textContent = "—";
-      centsText.textContent = "--";
-      centsText.className = "cents mono";
-      freqText.textContent = "STANDBY";
-      needle.style.left = "50%";
+      display.cents = 0;
 
-      for (let i=0;i<strobeLines.length;i++){
-        strobeLines[i].style.opacity = "0.10";
+      scheduleDOMUpdate({
+        freq: "STANDBY",
+        note: "—",
+        cents: "--",
+        centsClass: "cents mono",
+        needlePct: "50%",
+        needleColor: "var(--fg)",
+        needleShadow: "none"
+      });
+
+      if (now - lastStrobeUpdate >= STROBE_UPDATE_INTERVAL) {
+        lastStrobeUpdate = now;
+        for (let i=0;i<strobeLines.length;i++){
+          strobeLines[i].style.opacity = "0.10";
+        }
       }
 
+      batchUpdateDOM();
       if (audioCtx) requestAnimationFrame(tick);
       return;
     }
@@ -1514,32 +1684,38 @@ registerProcessor("yin-processor", YinProcessor);
     display.targetHz = targetHz;
     display.freqHz = freq;
 
-    noteText.textContent = name + octave;
-    freqText.textContent = `${formatHz(freq)}Hz / ${formatHz(targetHz)}Hz`;
-
     const absC = Math.abs(cents);
     const rounded = (cents >= 0 ? "+" : "") + cents.toFixed(1) + "¢";
-    centsText.textContent = rounded;
-
-    centsText.className = "cents mono " + (absC <= 2 ? "good" : absC <= 8 ? "warn" : "bad");
-
     const x = clamp(cents, -50, 50);
     const pct = 50 + (x / 50) * 50;
-    needle.style.left = pct.toFixed(1) + "%";
-    needle.style.background = (absC <= 2) ? "var(--primary)" : (absC <= 8 ? "var(--warn)" : "var(--bad)");
-    needle.style.boxShadow = (absC <= 2) ? "0 0 10px var(--primary)" : "none";
+    const needleColor = (absC <= 2) ? "var(--primary)" : (absC <= 8 ? "var(--warn)" : "var(--bad)");
 
-    const speed = clamp(cents, -50, 50) * 0.9;
-    strobePhase = (strobePhase + speed * dt) % 360;
+    scheduleDOMUpdate({
+      freq: `${formatHz(freq)}Hz / ${formatHz(targetHz)}Hz`,
+      note: name + octave,
+      cents: rounded,
+      centsClass: "cents mono " + (absC <= 2 ? "good" : absC <= 8 ? "warn" : "bad"),
+      needlePct: pct.toFixed(1) + "%",
+      needleColor,
+      needleShadow: (absC <= 2) ? "0 0 10px var(--primary)" : "none"
+    });
 
-    const phaseRad = strobePhase * (Math.PI/180);
-    for (let i=0;i<strobeLines.length;i++){
-      const a = (i * 30) * (Math.PI/180);
-      const d = Math.cos(a - phaseRad);
-      const op = 0.18 + 0.55 * Math.max(0, d);
-      strobeLines[i].style.opacity = op.toFixed(3);
+    if (now - lastStrobeUpdate >= STROBE_UPDATE_INTERVAL) {
+      lastStrobeUpdate = now;
+      const dtStrobe = STROBE_UPDATE_INTERVAL / 1000;
+      const speed = clamp(cents, -50, 50) * 0.9;
+      strobePhase = (strobePhase + speed * dtStrobe) % 360;
+
+      const phaseRad = strobePhase * (Math.PI/180);
+      for (let i=0;i<strobeLines.length;i++){
+        const a = (i * 30) * (Math.PI/180);
+        const d = Math.cos(a - phaseRad);
+        const op = 0.18 + 0.55 * Math.max(0, d);
+        strobeLines[i].style.opacity = op.toFixed(3);
+      }
     }
 
+    batchUpdateDOM();
     if (audioCtx) requestAnimationFrame(tick);
   }
 
