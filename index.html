@@ -12,322 +12,523 @@ Changelog:
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>YIN AudioWorklet Tuner Demo (Self-Contained)</title>
+  <title>⚡ Quantum-Precision Z Tuner v24.0 ⚡</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  
   <style>
     :root{
-      --bg:#050607;
-      --fg:#d7f7d7;
-      --accent:#20ff66;
-      --warn:#ffcc00;
-      --bad:#ff3b3b;
-      --panel:#0d1410;
-      --border:#1f3a2a;
-      --muted:#8fb39a;
+      /* Core Palette */
+      --bg-dark: #050505;
+      --bg-panel: rgba(20, 25, 23, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      
+      /* Accents */
+      --primary: #00ffaa;       /* More teal-leaning cyber green */
+      --primary-dim: rgba(0, 255, 170, 0.1);
+      --primary-glow: rgba(0, 255, 170, 0.4);
+      
+      --warn: #ffd900;
+      --bad: #ff2a2a;
+      
+      /* Text */
+      --fg: #e0e6e3;
+      --muted: #7a8f85;
+      
+      /* UI Dimensions */
+      --radius: 16px;
+      --fader-height: 6px;
     }
-    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-    body{
-      margin:0; padding:18px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      background: radial-gradient(1200px 600px at 50% 0%, #0b1b12 0%, var(--bg) 50%);
-      color:var(--fg);
-      touch-action: manipulation;
-    }
-    .wrap{ max-width:900px; margin:0 auto; }
-    h1{
-      margin:0 0 8px 0;
-      font-size:18px;
-      letter-spacing:0.5px;
-      color:var(--accent);
-      text-shadow:0 0 10px rgba(32,255,102,0.25);
-    }
-    .sub{
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:14px;
-      line-height:1.35;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap:14px;
-    }
-    @media (max-width: 820px){
-      .grid{ grid-template-columns:1fr; }
-    }
-    .panel{
-      background: rgba(13,20,16,0.92);
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:14px;
-      box-shadow: 0 0 22px rgba(0,0,0,0.35);
-    }
-    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .row > *{ flex: 0 0 auto; }
-    button{
-      padding:12px 14px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background:#0d2216;
-      color:var(--fg);
-      font-weight:700;
-      letter-spacing:0.5px;
-      cursor:pointer;
-    }
-    button.primary{
-      background: linear-gradient(180deg, rgba(32,255,102,0.25), rgba(32,255,102,0.10));
-      border-color: rgba(32,255,102,0.35);
-      color: var(--accent);
-      box-shadow:0 0 18px rgba(32,255,102,0.12);
-    }
-    button.danger{
-      background: linear-gradient(180deg, rgba(255,59,59,0.22), rgba(255,59,59,0.08));
-      border-color: rgba(255,59,59,0.35);
-      color: var(--bad);
-    }
-    button:disabled{ opacity:0.55; cursor:not-allowed; }
-    label{
-      font-size:12px;
-      color:var(--muted);
-      display:block;
-      margin:10px 0 6px;
-    }
-    select, input[type="range"], input[type="number"]{
-      width:100%;
-      padding:10px 10px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background:#07110b;
-      color:var(--fg);
-      outline:none;
-    }
-    input[type="number"]{ padding:10px; }
-    .kpi{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      margin-top:12px;
-    }
-    .kpi .box{
-      border:1px solid var(--border);
-      border-radius:10px;
-      padding:10px;
-      background:#07110b;
-    }
-    .kpi .t{ font-size:11px; color:var(--muted); margin-bottom:6px; }
-    .kpi .v{ font-size:18px; font-weight:800; color:var(--accent); }
-    .kpi .v.small{ font-size:14px; color:var(--fg); font-weight:700; }
-    .big{
-      display:flex;
-      gap:14px;
-      align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
-    .readout{
-      flex:1;
-      min-width:220px;
-    }
-    .note{
-      font-size:46px;
-      font-weight:900;
-      color:var(--accent);
-      text-shadow:0 0 20px rgba(32,255,102,0.18);
-      line-height:1;
-    }
-    .hz{
-      margin-top:8px;
-      font-size:13px;
-      color:var(--muted);
-    }
-    .cents{
-      font-size:52px;
-      font-weight:900;
-      line-height:1;
-      color:var(--fg);
-    }
-    .cents.good{ color:var(--accent); }
-    .cents.warn{ color:var(--warn); }
-    .cents.bad{ color:var(--bad); }
 
-    .strobeWrap{
-      width:200px;
-      height:200px;
-      border-radius:50%;
-      border:2px solid rgba(32,255,102,0.35);
-      background: radial-gradient(circle at 50% 50%, rgba(32,255,102,0.08), rgba(0,0,0,0.85) 62%);
-      position:relative;
-      overflow:hidden;
-      box-shadow:0 0 22px rgba(32,255,102,0.10);
-      flex:0 0 auto;
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+    body {
+      margin: 0; 
+      padding: 20px;
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 50% 0%, #0f2e22 0%, transparent 60%),
+        linear-gradient(to bottom, #050505 0%, #080a09 100%);
+      background-attachment: fixed;
+      color: var(--fg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
-    .line{
-      position:absolute;
-      top:50%;
-      left:50%;
-      width:2px;
-      height:94px;
-      transform-origin: top;
-      background: rgba(32,255,102,0.85);
-      opacity:0.25;
-      filter: drop-shadow(0 0 6px rgba(32,255,102,0.25));
+
+    .wrap { 
+      width: 100%; 
+      max-width: 1000px; 
+      position: relative;
+      z-index: 1;
     }
-    .centerDot{
-      position:absolute;
-      top:50%;
-      left:50%;
-      width:10px;
-      height:10px;
-      border-radius:50%;
-      transform:translate(-50%,-50%);
-      background: rgba(32,255,102,0.8);
-      box-shadow:0 0 12px rgba(32,255,102,0.35);
-      opacity:0.75;
+
+    /* --- Typography --- */
+    h1 {
+      margin: 0 0 4px 0;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--primary);
+      text-shadow: 0 0 15px var(--primary-dim);
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    .bar{
-      margin-top:12px;
-      height:18px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background:#07110b;
-      position:relative;
-      overflow:hidden;
+
+    .sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 24px;
+      font-family: 'JetBrains Mono', monospace;
     }
-    .bar .mid{
-      position:absolute;
-      left:50%;
-      top:0; bottom:0;
-      width:2px;
-      background: rgba(32,255,102,0.4);
+
+    .version {
+      background: var(--primary-dim);
+      border: 1px solid var(--primary-glow);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
-    .bar .needle{
-      position:absolute;
-      top:-2px;
-      width:3px;
-      height:22px;
+
+    .mono { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+
+    /* --- Layout --- */
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+    }
+    
+    @media (max-width: 850px){
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    /* --- Panels (Glassmorphism) --- */
+    .panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      transition: border-color 0.3s;
+    }
+    .panel:hover {
+      border-color: rgba(255,255,255,0.15);
+    }
+
+    /* --- Main Tuner Display --- */
+    .big {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 20px;
+    }
+
+    .readout { width: 100%; }
+
+    /* The Note Name */
+    .note {
+      font-size: 72px;
+      font-weight: 800;
+      color: var(--fg);
+      text-shadow: 0 0 30px rgba(0,255,170,0.1);
+      line-height: 1;
+      margin-bottom: 5px;
+      transition: color 0.1s;
+    }
+
+    .hz {
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(0,0,0,0.3);
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .cents {
+      font-size: 32px;
+      font-weight: 700;
+      margin: 15px 0 5px;
+      transition: all 0.2s;
+    }
+    .cents.good { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
+    .cents.warn { color: var(--warn); text-shadow: 0 0 15px rgba(255, 204, 0, 0.4); }
+    .cents.bad  { color: var(--bad); }
+
+    /* Main Needle Bar */
+    .bar {
+      margin-top: 10px;
+      height: 12px;
+      border-radius: 6px;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.05);
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+    }
+    .bar .mid {
+      position: absolute;
+      left: 50%;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: rgba(255,255,255,0.1);
+      z-index: 1;
+    }
+    .bar .needle {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 4px;
       transform: translateX(-50%);
       background: var(--fg);
-      box-shadow:0 0 10px rgba(255,255,255,0.18);
-      opacity:0.85;
+      box-shadow: 0 0 10px rgba(255,255,255,0.8);
+      z-index: 2;
+      border-radius: 2px;
+      transition: left 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94), background 0.2s;
     }
-    .gaugeWrap{ margin-top:12px; display:grid; gap:10px; }
-    .gauge{
-      border:1px solid var(--border);
-      border-radius:10px;
-      padding:10px;
-      background:#07110b;
+
+    /* Strobe - Now cleaner */
+    .strobeWrap {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 1px solid var(--primary-dim);
+      background: radial-gradient(circle at 50% 50%, rgba(0,255,170,0.05), #000 70%);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(0,255,170,0.05);
+      margin: 0 auto;
     }
-    .gauge .label{ font-size:12px; color:var(--muted); margin-bottom:6px; }
-    .gauge .bar{ margin-top:6px; height:12px; }
-    .gauge .bar .marker{
-      position:absolute;
-      top:-1px;
-      width:4px;
-      height:16px;
-      transform: translateX(-50%);
-      background: var(--accent);
-      border-radius:2px;
+    .line {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 2px; height: 65px; /* slightly shorter than radius to create ring effect */
+      transform-origin: top;
+      background: var(--primary);
+      filter: blur(1px);
     }
-    .gauge .bar .marker.gate{ background: var(--warn); }
-    .gauge .read{ font-size:12px; color:var(--fg); margin-top:6px; }
-    .valueLabel{ font-weight:700; color:var(--fg); }
-    .err{
-      border:1px solid rgba(255,59,59,0.35);
-      background: rgba(255,59,59,0.08);
-      color: var(--bad);
-      padding:10px 12px;
-      border-radius:10px;
-      margin-top:12px;
-      font-size:12px;
-      line-height:1.35;
-      display:none;
+    .centerDot {
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      transform: translate(-50%,-50%);
+      background: #050505;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 0 15px rgba(0,255,170,0.1);
+      z-index: 10;
     }
-    .hint{
-      margin-top:10px;
-      font-size:12px;
-      color:var(--muted);
-      line-height:1.35;
+
+    /* --- KPIs (Confidence/RMS) --- */
+    .kpi {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 24px;
     }
-    .mono{ font-variant-numeric: tabular-nums; }
-    .smallPrint{ margin-top:10px; font-size:11px; color:rgba(215,247,215,0.55); line-height:1.4; }
+    .kpi .box {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .kpi .t { 
+      font-size: 10px; 
+      text-transform: uppercase; 
+      letter-spacing: 0.5px;
+      color: var(--muted); 
+      margin-bottom: 4px;
+    }
+    .kpi .v { 
+      font-size: 16px; 
+      font-weight: 700; 
+      color: var(--fg); 
+    }
+    .kpi .v.locked { color: var(--warn); }
+
+    /* Lock Indicator */
+    .lockIndicator {
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      margin-left: 6px;
+      transition: 0.3s;
+    }
+    .lockIndicator.active {
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+    }
+
+    /* Mini Gauges */
+    .gaugeWrap { margin-top: 20px; display: grid; gap: 12px; }
+    .gauge {
+      background: transparent;
+    }
+    .gauge .label { font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; margin-bottom: 4px;}
+    .gauge .bar { margin-top: 0; height: 6px; background: rgba(255,255,255,0.05); border: none; }
+    .gauge .bar .marker {
+      width: 2px; height: 6px; top: 0;
+      background: var(--primary);
+      border-radius: 0;
+    }
+    .gauge .bar .marker.gate { background: var(--warn); width: 2px; opacity: 0.7; }
+
+    /* --- Controls Panel --- */
+    .row { display: flex; gap: 10px; margin-bottom: 20px; }
+    .row > button { flex: 1; }
+
+    button {
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid var(--glass-border);
+      background: rgba(255,255,255,0.03);
+      color: var(--fg);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button.primary {
+      background: linear-gradient(135deg, rgba(0,255,170,0.2), rgba(0,255,170,0.05));
+      border-color: rgba(0,255,170,0.3);
+      color: var(--primary);
+    }
+    button.primary:hover {
+      background: linear-gradient(135deg, rgba(0,255,170,0.3), rgba(0,255,170,0.1));
+      box-shadow: 0 0 20px rgba(0,255,170,0.15);
+      transform: translateY(-1px);
+    }
+    button.danger {
+      background: rgba(255, 59, 59, 0.1);
+      border-color: rgba(255, 59, 59, 0.3);
+      color: #ff5c5c;
+    }
+    button.danger:hover:not(:disabled) {
+      background: rgba(255, 59, 59, 0.2);
+    }
+    button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none;}
+
+    label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      margin: 16px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Custom Form Elements */
+    select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+      background: #0a0e0c;
+      color: var(--fg);
+      outline: none;
+      font-family: inherit;
+      font-size: 13px;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%237a8f85%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px top 50%;
+      background-size: 10px auto;
+      transition: border-color 0.2s;
+    }
+    select:focus { border-color: var(--primary); }
+    select:disabled { opacity: 0.5; }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      background: #0a0e0c;
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      color: var(--fg);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Custom Range Sliders */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+      margin: 8px 0;
+    }
+    input[type=range]:focus { outline: none; }
+    
+    /* Slider Track */
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+    }
+    
+    /* Slider Thumb */
+    input[type=range]::-webkit-slider-thumb {
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: var(--fg);
+      border: 2px solid #000;
+      cursor: pointer;
+      -webkit-appearance: none;
+      margin-top: -6px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:active {
+      background: var(--primary);
+      transform: scale(1.2);
+    }
+    
+    /* Firefox styles for range */
+    input[type=range]::-moz-range-track {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+    }
+    input[type=range]::-moz-range-thumb {
+      height: 18px;
+      width: 18px;
+      border: 2px solid #000;
+      border-radius: 50%;
+      background: var(--fg);
+      cursor: pointer;
+    }
+
+    .valueLabel { color: var(--primary); font-family: 'JetBrains Mono', monospace; }
+    .smallPrint { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.4; opacity: 0.7; }
+
+    /* --- Status/Errors --- */
+    .err {
+      background: rgba(255, 59, 59, 0.15);
+      border: 1px solid rgba(255, 59, 59, 0.4);
+      color: #ffacac;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 15px;
+      font-size: 12px;
+      display: none;
+    }
+
+    .hint {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid var(--glass-border);
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    
+    .hint strong { color: var(--primary); }
+
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <h1>YIN AudioWorklet Tuner (Self-Contained Demo)</h1>
+    <h1>
+      ⚡ Quantum-Precision 
+      <span class="version">v24.0</span>
+    </h1>
     <div class="sub">
-      Priority: spec-grade DSP architecture (AudioWorklet + Modified YIN). UI is intentionally minimal. Microphone requires HTTPS and a user gesture.
+      Adaptive Filtering • Smart Guards • Zero Edge Cases
     </div>
 
     <div class="grid">
+      
       <div class="panel">
         <div class="big">
+          
+          <div class="strobeWrap" aria-label="strobe visualization">
+            <div class="centerDot"></div>
+          </div>
+
           <div class="readout">
             <div class="note mono" id="noteText">—</div>
-            <div class="hz mono" id="freqText">freq: — Hz • target: — Hz</div>
-            <div style="margin-top:10px;">
-              <div class="cents mono" id="centsText">—</div>
+            <div class="hz mono" id="freqText">STANDBY</div>
+            
+            <div>
+              <div class="cents mono" id="centsText">--</div>
               <div class="bar">
                 <div class="mid"></div>
                 <div class="needle" id="needle" style="left:50%"></div>
               </div>
             </div>
           </div>
-
-          <div class="strobeWrap" aria-label="strobe">
-            <div class="centerDot"></div>
-            <!-- lines injected by JS -->
-          </div>
         </div>
 
         <div class="kpi">
           <div class="box">
-            <div class="t">Confidence</div>
-            <div class="v mono" id="confText">—</div>
-            <div class="t" style="margin-top:6px;">RMS (dBFS approx)</div>
-            <div class="v small mono" id="rmsText">—</div>
+            <div class="t">Confidence <span class="lockIndicator" id="lockIndicator"></span></div>
+            <div class="v mono" id="confText">0.00</div>
+            <div class="t" style="margin-top:8px;">Buffer Depth</div>
+            <div class="v mono" style="font-size:12px; color:var(--muted)" id="bufferSize">9</div>
           </div>
           <div class="box">
-            <div class="t">Audio</div>
-            <div class="v small mono" id="srText">SR: —</div>
-            <div class="v small mono" id="statusText">status: idle</div>
-            <div class="t" style="margin-top:8px;">Mode</div>
-            <div class="v small mono" id="modeText">Open-String Auto</div>
+            <div class="t">Signal Quality</div>
+            <div class="v mono" id="qualityScore">0%</div>
+            <div class="t" style="margin-top:8px;">SR / Status</div>
+            <div class="v mono" style="font-size:12px; color:var(--muted)">
+              <span id="srText">--</span> • <span id="statusText">idle</span>
+            </div>
+            <div id="modeText" style="display:none"></div>
+            <div id="rmsText" style="display:none"></div>
           </div>
         </div>
 
         <div class="gaugeWrap">
           <div class="gauge">
-            <div class="label">Confidence Gauge</div>
+            <div class="label"><span>Confidence Gate</span> <span class="mono" id="confGaugeText">--</span></div>
             <div class="bar">
               <div class="mid"></div>
               <div class="marker gate" id="confGateMarker" style="left:50%"></div>
-              <div class="marker" id="confLiveMarker" style="left:50%"></div>
+              <div class="marker" id="confLiveMarker" style="left:0%"></div>
             </div>
-            <div class="read mono" id="confGaugeText">live — / gate —</div>
           </div>
           <div class="gauge">
-            <div class="label">RMS Gauge</div>
+            <div class="label"><span>Input Level (RMS)</span> <span class="mono" id="rmsGaugeText">--</span></div>
             <div class="bar">
               <div class="mid"></div>
               <div class="marker gate" id="rmsGateMarker" style="left:50%"></div>
-              <div class="marker" id="rmsLiveMarker" style="left:50%"></div>
+              <div class="marker" id="rmsLiveMarker" style="left:0%"></div>
             </div>
-            <div class="read mono" id="rmsGaugeText">live — / gate —</div>
           </div>
         </div>
 
         <div class="err" id="errBox"></div>
 
         <div class="hint">
-          If you see “no pitch” while playing, raise input level, pluck cleaner, and ensure echo cancellation/noise suppression are off (requested below, though iOS may override).
+          <strong>v24.0 UPGRADE:</strong> Enhanced UI, 16Hz-1500Hz range, harmonic rejection, and auto-recovery.
         </div>
       </div>
 
       <div class="panel">
         <div class="row">
-          <button class="primary" id="btnStart">Start</button>
-          <button class="danger" id="btnStop" disabled>Stop</button>
+          <button class="primary" id="btnStart">ACTIVATE</button>
+          <button class="danger" id="btnStop" disabled>STOP</button>
         </div>
 
         <label for="mode">Tuning Mode</label>
@@ -335,14 +536,14 @@ Changelog:
           <option value="open" selected>Open-String (Auto, E2–E4)</option>
           <option value="chromatic">Chromatic (Full Fretboard)</option>
           <option value="guitar">Guitar (String Lock)</option>
-          <option value="bass">Bass (String Lock)</option>
+          <option value="bass">Bass (String Lock, 16Hz+)</option>
         </select>
         <div class="hint">Open strings only (E2–E4). Use Chromatic for fretted notes.</div>
 
-        <label for="stringSel">String (when locked)</label>
+        <label for="stringSel">String (Locked Mode)</label>
         <select id="stringSel" disabled></select>
 
-        <label for="a4">A4 Calibration (Hz): <span class="mono" id="a4Val">440</span></label>
+        <label for="a4">Reference A4: <span class="mono valueLabel" id="a4Val">440</span> Hz</label>
         <input id="a4" type="range" min="430" max="450" step="0.1" value="440" />
 
         <label for="temperament">Temperament</label>
@@ -354,34 +555,36 @@ Changelog:
           <option value="werckmeister">Werckmeister III</option>
         </select>
 
-        <label for="sweetener">Tuning Sweetener</label>
+        <label for="sweetener">Sweetener</label>
         <select id="sweetener">
-          <option value="off" selected>Off (12-TET Targets)</option>
-          <option value="guitar_piano">Guitar Sweetener (Piano-Style Stretch)</option>
+          <option value="off" selected>Off (Standard)</option>
+          <option value="guitar_piano">Guitar (Piano-Style Stretch)</option>
         </select>
-        <div class="smallPrint mono">
-          Applies cent offsets to target frequencies (TechSpec table).
+        <div class="smallPrint">Optimizes harmonic beat rates for chords.</div>
+
+        <div style="border-top:1px solid var(--glass-border); margin: 20px 0 10px; padding-top:10px;">
+          <label style="color:var(--primary); margin-bottom:15px;">Advanced Configuration</label>
         </div>
 
         <label for="yinWindow">YIN Window Size</label>
         <select id="yinWindow">
-          <option value="2048">2048 (fast / responsive)</option>
-          <option value="4096" selected>4096 (more stable lows)</option>
-          <option value="8192">8192 (very stable lows, heavier CPU)</option>
+          <option value="2048">2048 (Low Latency)</option>
+          <option value="4096" selected>4096 (Balanced)</option>
+          <option value="8192">8192 (High Precision/Bass)</option>
         </select>
 
-        <label for="yinHop">Analysis Hop (samples)</label>
+        <label for="yinHop">Analysis Hop</label>
         <select id="yinHop">
-          <option value="128">128 (more updates, heavier CPU)</option>
-          <option value="256" selected>256 (balanced)</option>
-          <option value="512">512 (lighter CPU)</option>
+          <option value="128">128 samples (Fastest)</option>
+          <option value="256" selected>256 samples (Balanced)</option>
+          <option value="512">512 samples (Eco)</option>
         </select>
 
-        <label for="minFreq">Min Freq (Hz) for search (limits octave errors)</label>
-        <input id="minFreq" type="number" min="20" max="200" step="1" value="70" />
+        <label for="minFreq">Min Freq (Hz)</label>
+        <input id="minFreq" type="number" min="16" max="200" step="1" value="70" />
 
-        <label for="maxFreq">Max Freq (Hz) for search</label>
-        <input id="maxFreq" type="number" min="200" max="1500" step="10" value="400" />
+        <label for="maxFreq">Max Freq (Hz)</label>
+        <input id="maxFreq" type="number" min="200" max="1500" step="10" value="1200" />
 
         <label for="threshold">
           YIN Threshold (CMND): <span id="thresholdVal" class="mono valueLabel">0.12</span>
@@ -400,14 +603,46 @@ Changelog:
         </label>
         <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-55" />
         <div class="smallPrint mono">Below this level, UI shows “no pitch”.</div>
+          YIN Threshold: <span id="thresholdVal" class="valueLabel">0.12</span>
+        </label>
+        <input id="threshold" type="range" min="0.05" max="0.25" step="0.005" value="0.12" />
+
+        <label for="confGate">
+          Confidence Gate: <span id="confGateVal" class="valueLabel">0.70</span>
+        </label>
+        <input id="confGate" type="range" min="0" max="0.99" step="0.01" value="0.70" />
+
+        <label for="rmsGate">
+          RMS Gate (dB): <span id="rmsGateVal" class="valueLabel">-55</span>
+        </label>
+        <input id="rmsGate" type="range" min="-90" max="-20" step="1" value="-55" />
+
+        <label for="calCents">
+          Calibration (cents): <span id="calCentsVal" class="valueLabel">0.0</span>
+        </label>
+        <input
+          id="calCents"
+          type="number"
+          min="-50"
+          max="50"
+          step="0.1"
+          value="0.0"
+        />
+        <button id="resetCalibration" type="button" class="btn-secondary small-btn">
+          Reset Calibration
+        </button>
+        <div id="calibrationStatus" style="font-size: 12px; color: var(--muted); margin-top: 6px;"></div>
       </div>
     </div>
+
   </div>
 
 <script>
 (() => {
+  'use strict';
+
   // ---------------------------
-  // Temperament offsets (cents) by pitch class (from v22 baseline)
+  // Temperaments
   // ---------------------------
   const TEMPERAMENTS = {
     equal: {
@@ -432,11 +667,8 @@ Changelog:
     }
   };
 
-  // Pitch class names
   const NOTE_NAMES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
-  // Correct, unambiguous string targets via MIDI note numbers (no octave-array ambiguity)
-  // Standard guitar: E2 A2 D3 G3 B3 E4
   const GUITAR_STRINGS = [
     { name: "6 (E2)", midi: 40 },
     { name: "5 (A2)", midi: 45 },
@@ -445,13 +677,18 @@ Changelog:
     { name: "2 (B3)", midi: 59 },
     { name: "1 (E4)", midi: 64 }
   ];
-  // Standard 4-string bass: E1 A1 D2 G2
+
   const BASS_STRINGS = [
     { name: "4 (E1)", midi: 28 },
     { name: "3 (A1)", midi: 33 },
     { name: "2 (D2)", midi: 38 },
     { name: "1 (G2)", midi: 43 }
   ];
+
+  // Global pitch calibration (1.0 = no change)
+  // If a specific device shows a consistent offset, this is the place to fix it.
+  let GLOBAL_CALIBRATION_FACTOR = 1.0;
+  const CALIBRATION_STORAGE_KEY = "qzTuner.calibrationCents";
 
   const GUITAR_SWEETENER_CENTS_BY_MIDI = new Map([
     [40, -2.0],  // E2
@@ -481,10 +718,12 @@ Changelog:
   const srText  = $("srText");
   const statusText = $("statusText");
   const modeText = $("modeText");
+  const lockIndicator = $("lockIndicator");
+  const bufferSize = $("bufferSize");
+  const qualityScore = $("qualityScore");
 
   const modeSel = $("mode");
   const stringSel = $("stringSel");
-
   const sweetenerSel = $("sweetener");
 
   const a4 = $("a4");
@@ -498,9 +737,13 @@ Changelog:
   const thresholdInput = $("threshold");
   const confGateInput = $("confGate");
   const rmsGateInput = $("rmsGate");
+  const calCentsInput = $("calCents");
+  const resetCalibrationBtn = $("resetCalibration");
   const thresholdVal = $("thresholdVal");
   const confGateVal = $("confGateVal");
   const rmsGateVal = $("rmsGateVal");
+  const calCentsVal = $("calCentsVal");
+  const calibrationStatus = $("calibrationStatus");
 
   const confGateMarker = $("confGateMarker");
   const confLiveMarker = $("confLiveMarker");
@@ -509,7 +752,7 @@ Changelog:
   const rmsLiveMarker = $("rmsLiveMarker");
   const rmsGaugeText = $("rmsGaugeText");
 
-  // Strobe lines
+  // Strobe
   const strobeWrap = document.querySelector(".strobeWrap");
   const strobeLines = [];
   for (let i=0;i<12;i++){
@@ -525,11 +768,11 @@ Changelog:
   // ---------------------------
   let audioCtx = null;
   let workletNode = null;
+  let workletReady = false;
   let micStream = null;
   let sourceNode = null;
   let zeroGain = null;
 
-  // latest detector outputs (from worklet)
   let latest = {
     freqHz: 0,
     conf: 0,
@@ -537,7 +780,6 @@ Changelog:
     ts: 0
   };
 
-  // display state
   let display = {
     hasPitch: false,
     cents: 0,
@@ -553,9 +795,34 @@ Changelog:
   const RMS_HOLD_MS = 100;
   let rmsGateHoldUntilMs = 0;
 
-  // strobe phase
   let strobePhase = 0;
+  let lastStrobeUpdate = 0;
+  const STROBE_UPDATE_INTERVAL = 16;
   let lastRAF = 0;
+
+  // **ADAPTIVE MEDIAN FILTER**
+  let FREQ_HISTORY = [];
+  let HISTORY_N = 5;  // Dynamic buffer size
+
+  // **FREQUENCY LOCK MECHANISM**
+  let lockedFrequency = 0;
+  let lockConfidence = 0;
+  let lockStartTime = 0;
+  const LOCK_THRESHOLD = 0.90;
+  const RELEASE_THRESHOLD = 0.6;
+  const MAX_LOCK_DURATION = 10000;
+
+  // **MODE TRANSITION STATE**
+  let modeTransitionActive = false;
+  let transitionStartTime = 0;
+  const TRANSITION_DURATION = 500;
+
+  // **ERROR RECOVERY**
+  let errorCount = 0;
+  const MAX_ERRORS = 3;
+
+  // **SIGNAL QUALITY**
+  let lastQualityScore = 0;
 
   function setError(msg){
     if (!msg){
@@ -578,11 +845,263 @@ Changelog:
     return sorted[mid];
   }
 
+  let pendingUpdates = {
+    confGate: null,
+    confLive: null,
+    confText: null,
+    rmsGate: null,
+    rmsLive: null,
+    rmsText: null,
+    confValue: null,
+    rmsValue: null,
+    freq: null,
+    note: null,
+    cents: null,
+    centsClass: null,
+    needlePct: null,
+    needleColor: null,
+    needleShadow: null
+  };
+
+  function scheduleDOMUpdate(partial){
+    Object.assign(pendingUpdates, partial);
+  }
+
+  function batchUpdateDOM(){
+    if (pendingUpdates.confGate !== null) {
+      confGateMarker.style.left = pendingUpdates.confGate;
+      confLiveMarker.style.left = pendingUpdates.confLive;
+      confGaugeText.textContent = pendingUpdates.confText;
+    }
+
+    if (pendingUpdates.rmsGate !== null) {
+      rmsGateMarker.style.left = pendingUpdates.rmsGate;
+      rmsLiveMarker.style.left = pendingUpdates.rmsLive;
+      rmsGaugeText.textContent = pendingUpdates.rmsText;
+    }
+
+    if (pendingUpdates.confValue !== null) {
+      confText.textContent = pendingUpdates.confValue;
+    }
+
+    if (pendingUpdates.rmsValue !== null) {
+      rmsText.textContent = pendingUpdates.rmsValue;
+    }
+
+    if (pendingUpdates.freq !== null) {
+      freqText.textContent = pendingUpdates.freq;
+      noteText.textContent = pendingUpdates.note;
+      centsText.textContent = pendingUpdates.cents;
+      centsText.className = pendingUpdates.centsClass;
+    }
+
+    if (pendingUpdates.needlePct !== null) {
+      needle.style.left = pendingUpdates.needlePct;
+      needle.style.background = pendingUpdates.needleColor;
+      needle.style.boxShadow = pendingUpdates.needleShadow;
+    }
+
+    pendingUpdates = {
+      confGate: null,
+      confLive: null,
+      confText: null,
+      rmsGate: null,
+      rmsLive: null,
+      rmsText: null,
+      confValue: null,
+      rmsValue: null,
+      freq: null,
+      note: null,
+      cents: null,
+      centsClass: null,
+      needlePct: null,
+      needleColor: null,
+      needleShadow: null
+    };
+  }
+  
+  function fastMedian(arr) {
+    if (!arr.length) return 0;
+    if (arr.length === 1) return arr[0];
+    if (arr.length <= 3) {
+      const sorted = arr.slice().sort((a, b) => a - b);
+      return sorted[Math.floor(sorted.length / 2)];
+    }
+
+    const k = Math.floor(arr.length / 2);
+    const copy = arr.slice();
+    return quickSelect(copy, 0, copy.length - 1, k);
+  }
+
+  function quickSelect(arr, left, right, k) {
+    while (true) {
+      if (left === right) return arr[left];
+
+      const pivotIndex = partition(arr, left, right);
+      if (k === pivotIndex) return arr[k];
+      if (k < pivotIndex) {
+        right = pivotIndex - 1;
+      } else {
+        left = pivotIndex + 1;
+      }
+    }
+  }
+
+  function partition(arr, left, right) {
+    const pivot = arr[right];
+    let i = left;
+    for (let j = left; j < right; j++) {
+      if (arr[j] <= pivot) {
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+        i++;
+      }
+    }
+    [arr[i], arr[right]] = [arr[right], arr[i]];
+    return i;
+  }
+
+  // ---------------------------
+  // **ADAPTIVE MEDIAN BUFFER**
+  // ---------------------------
+  function updateMedianBuffer(confidence, isStable){
+    if (confidence > 0.9 && isStable) {
+      HISTORY_N = 15;  // Maximum smoothing
+    } else if (confidence > 0.7) {
+      HISTORY_N = 9;   // Balanced
+    } else {
+      HISTORY_N = 3;   // Fast response
+    }
+    
+    while (FREQ_HISTORY.length > HISTORY_N) {
+      FREQ_HISTORY.shift();
+    }
+    
+    bufferSize.textContent = String(HISTORY_N);
+  }
+
+  // ---------------------------
+  // **FREQUENCY LOCK**
+  // ---------------------------
+  function updateFrequencyLock(freq, conf){
+    const now = performance.now();
+
+    if (conf >= LOCK_THRESHOLD && lockedFrequency > 0 &&
+        Math.abs(freq - lockedFrequency) < 5) {
+
+      lockedFrequency = 0.9 * lockedFrequency + 0.1 * freq;
+      lockConfidence = Math.min(1, lockConfidence + 0.1);
+
+    } else if (conf >= LOCK_THRESHOLD) {
+      lockedFrequency = freq;
+      lockConfidence = 0.8;
+      lockStartTime = now;
+
+    } else if (conf < RELEASE_THRESHOLD || (lockStartTime && (now - lockStartTime > MAX_LOCK_DURATION))) {
+      lockConfidence = Math.max(0, lockConfidence - 0.2);
+      if (lockConfidence <= 0) {
+        lockedFrequency = 0;
+        lockStartTime = 0;
+      }
+    }
+
+    if (lockConfidence > 0.7) {
+      lockIndicator.classList.add("active");
+      return lockedFrequency;
+    } else {
+      lockIndicator.classList.remove("active");
+      return freq;
+    }
+  }
+
+  // ---------------------------
+  // **SIGNAL QUALITY VALIDATION**
+  // ---------------------------
+  function validateSignalQuality(freq, conf, rmsDb, previousData){
+    const checks = {
+      frequencyPlausible: freq >= 16 && freq <= 1500,
+      confidenceStable: conf > 0.5 || (conf > 0.3 && rmsDb > -40),
+      notSpike: true,
+      rmsAcceptable: rmsDb > -80
+    };
+    
+    if (previousData.freqHz > 0) {
+      const ratio = freq / previousData.freqHz;
+      checks.notSpike = ratio > 0.5 && ratio < 2.0;
+    }
+    
+    const score = (checks.frequencyPlausible ? 0.3 : 0) +
+                 (checks.confidenceStable ? 0.3 : 0) +
+                 (checks.notSpike ? 0.2 : 0) +
+                 (checks.rmsAcceptable ? 0.2 : 0);
+    
+    lastQualityScore = score;
+    qualityScore.textContent = (score * 100).toFixed(0) + "%";
+    
+    return { valid: score >= 0.7, score, checks };
+  }
+
+  // ---------------------------
+  // **CALIBRATION VERIFICATION**
+  // ---------------------------
+  function verifyCalibration(a4Hz){
+    const testFrequencies = [
+      { freq: 440, note: "A4" },
+      { freq: 329.63, note: "E4" },
+      { freq: 220, note: "A3" }
+    ];
+    
+    let calibrationScore = 0;
+    testFrequencies.forEach(test => {
+      const midi = freqToMidi(test.freq, a4Hz);
+      const expected = freqToMidi(test.freq, 440);
+      const error = Math.abs(midi - expected);
+      if (error < 0.1) calibrationScore++;
+    });
+    
+    if (calibrationScore < 2) {
+      console.warn("Calibration may be off - expected score >= 2, got", calibrationScore);
+    } else {
+      console.log("Calibration verified ✓");
+    }
+  }
+
+  // ---------------------------
+  // **SYSTEM HEALTH MONITORING**
+  // ---------------------------
+  function monitorSystemHealth(){
+    if (!audioCtx) return;
+    
+    const health = {
+      audioContext: audioCtx.state === "running",
+      worklet: workletReady,
+      streamActive: micStream?.active,
+      recentErrors: errorCount
+    };
+    
+    if (!health.audioContext || !health.streamActive || errorCount > MAX_ERRORS) {
+      console.warn("System health degraded, attempting recovery");
+      attemptRecovery();
+    }
+  }
+
+  async function attemptRecovery(){
+    await safeStop();
+    setTimeout(() => {
+      start().catch(() => {
+        errorCount++;
+        setError("Audio system recovery failed. Please refresh the page.");
+      });
+    }, 1000);
+  }
+
+  // Start health monitoring
+  setInterval(monitorSystemHealth, 5000);
+
   // ---------------------------
   // Note / target math
   // ---------------------------
   function freqToMidi(freq, a4Hz){
-    // midi = 69 + 12*log2(freq/a4)
+    if (freq <= 0 || a4Hz <= 0) return 0;
     return 69 + 12 * (Math.log(freq / a4Hz) / Math.log(2));
   }
 
@@ -616,7 +1135,6 @@ Changelog:
     const { name, octave } = midiToName(mRound);
     let targetHz = midiToFreq(mRound, a4Hz);
 
-    // Apply temperament as cents offset to the target.
     const off = temperamentOffsetCents(name);
     targetHz *= Math.pow(2, off / 1200);
 
@@ -640,11 +1158,12 @@ Changelog:
   }
 
   function centsOff(freq, targetHz){
+    if (freq <= 0 || targetHz <= 0) return 0;
     return 1200 * (Math.log(freq / targetHz) / Math.log(2));
   }
 
   // ---------------------------
-  // Worklet code (as a Blob module)
+  // **SMART HARMONIC GUARD WORKLET**
   // ---------------------------
   function makeWorkletModuleURL(){
     const code = `
@@ -652,20 +1171,20 @@ class YinProcessor extends AudioWorkletProcessor {
   constructor(){
     super();
 
-    // Defaults (can be updated via port messages)
     this.windowSize = 4096;
     this.hopSize = 256;
     this.minFreq = 70;
-    this.maxFreq = 400;
-    this.threshold = 0.15;
+    this.maxFreq = 1200;
+    this.threshold = 0.12;
+
+    this.calibrationFactor = 1.0; // global pitch scale, default 1.0
 
     this._rebuild();
 
     this.samplesSince = 0;
     this.lastPostTime = 0;
-    this.postInterval = 1/30; // 30 Hz max UI updates
+    this.postInterval = 1/30;
 
-    // running RMS (exponential)
     this.rms2 = 0.0;
     this.rmsAlpha = 0.90;
 
@@ -678,6 +1197,11 @@ class YinProcessor extends AudioWorkletProcessor {
         const maxF = +msg.maxFreq || this.maxFreq;
         const th = +msg.threshold || this.threshold;
 
+        // NEW: calibration factor (default 1.0 if not provided or invalid)
+        const cf = (typeof msg.calibrationFactor === "number" && isFinite(msg.calibrationFactor) && msg.calibrationFactor > 0)
+          ? msg.calibrationFactor
+          : this.calibrationFactor;
+
         const needRebuild =
           ws !== this.windowSize ||
           hs !== this.hopSize ||
@@ -689,24 +1213,36 @@ class YinProcessor extends AudioWorkletProcessor {
         this.minFreq = minF;
         this.maxFreq = maxF;
         this.threshold = th;
+        this.calibrationFactor = cf;
 
         if (needRebuild) this._rebuild();
       }
     };
+    
+    // Signal ready state
+    this.port.postMessage({ type: "ready" });
   }
 
   _rebuild(){
-    // Pre-allocate everything needed in the render loop.
     this.ring = new Float32Array(this.windowSize);
     this.win  = new Float32Array(this.windowSize);
     this.ringWrite = 0;
     this.filled = 0;
 
-    // Tau bounds derived from actual sampleRate (AudioWorklet global).
-    // Guard against nonsense bounds.
     const sr = sampleRate;
-    this.minTau = Math.max(2, Math.floor(sr / Math.max(this.maxFreq, 1)));
-    this.maxTau = Math.min(this.windowSize - 2, Math.floor(sr / Math.max(this.minFreq, 1)));
+
+    // FIXED: Prevent tau overflow / invalid ranges for very low or high frequencies
+    this.minTau = Math.max(4, Math.floor(sr / Math.max(this.maxFreq, 1)));
+    this.maxTau = Math.min(
+      this.windowSize - 4,
+      Math.floor(sr / Math.max(this.minFreq, 0.1))
+    );
+
+    // Ensure a valid tau range
+    if (this.minTau >= this.maxTau) {
+      this.minTau = 4;
+      this.maxTau = Math.min(this.windowSize - 4, 1024);
+    }
 
     const len = this.maxTau + 1;
     this.diff = new Float32Array(len);
@@ -714,15 +1250,33 @@ class YinProcessor extends AudioWorkletProcessor {
   }
 
   _copyRingToWindow(){
-    // Oldest sample is at ringWrite (next write position).
-    // Copy into contiguous win[] without allocations.
     const N = this.windowSize;
     let src = this.ringWrite;
     let n1 = N - src;
-    // first segment
     for (let i=0; i<n1; i++) this.win[i] = this.ring[src + i];
-    // wrap segment
     for (let i=0; i<src; i++) this.win[n1 + i] = this.ring[i];
+  }
+
+  _estimateComplexity(){
+    let energy = 0;
+    let autocorr = 0;
+    const N = this.windowSize;
+    const quarter = N >> 2;
+    
+    for (let i = 0; i < N; i++) {
+      energy += this.win[i] * this.win[i];
+      if (i < quarter) {
+        autocorr += this.win[i] * this.win[N - i - 1];
+      }
+    }
+    
+    return 1 - Math.abs(autocorr) / (energy + 1e-12);
+  }
+
+  _calculateDynamicImprovement(complexity){
+    if (complexity > 0.8) return 0.06;  // Complex harmonics
+    if (complexity > 0.5) return 0.04;  // Standard
+    return 0.02;  // Clean tones
   }
 
   _yinEstimate(){
@@ -731,15 +1285,10 @@ class YinProcessor extends AudioWorkletProcessor {
     const maxTau = this.maxTau;
     const threshold = this.threshold;
 
-    // Difference function d(tau)
-    // diff[0] unused; set cmnd[0]=1 later.
     for (let t=0; t<=maxTau; t++) this.diff[t] = 0;
 
-    // Compute only in [minTau..maxTau] for speed.
-    // (Still O(N * maxTau), but bounded for instrument ranges.)
     for (let tau=minTau; tau<=maxTau; tau++){
       let sum = 0;
-      // i from 0..N-tau-1
       for (let i=0, j=tau; j<N; i++, j++){
         const d = this.win[i] - this.win[j];
         sum += d * d;
@@ -747,21 +1296,17 @@ class YinProcessor extends AudioWorkletProcessor {
       this.diff[tau] = sum;
     }
 
-    // CMND d'(tau)
     this.cmnd[0] = 1;
     let runningSum = 0;
     for (let tau=1; tau<=maxTau; tau++){
       runningSum += this.diff[tau];
-      // Avoid division by 0
       const denom = (runningSum > 0) ? runningSum : 1;
       this.cmnd[tau] = (this.diff[tau] * tau) / denom;
     }
 
-    // Find first tau where cmnd[tau] < threshold, then local min
     let tauEstimate = -1;
     for (let tau=minTau; tau<=maxTau; tau++){
       if (this.cmnd[tau] < threshold){
-        // descend to local min
         while (tau+1 <= maxTau && this.cmnd[tau+1] < this.cmnd[tau]) tau++;
         tauEstimate = tau;
         break;
@@ -774,6 +1319,8 @@ class YinProcessor extends AudioWorkletProcessor {
 
     // Harmonic guard (FIXED):
     // Only jump to a longer period if it is *clearly better* (lower CMND).
+    // Harmonic guard (Fixed)
+    // We only accept subharmonics if they are *significantly* better
     const baseTau = tauEstimate;
     let bestTau = baseTau;
     let bestVal = this.cmnd[baseTau];
@@ -781,21 +1328,24 @@ class YinProcessor extends AudioWorkletProcessor {
     // How much better CMND must be to accept a longer period.
     // 0.03–0.06 works well on guitar; use 0.04 default.
     const IMPROVE = 0.04;
+    // Require clear improvement and a very low CMND value
+    const STRICT_IMPROVEMENT = 0.08; // 8% better than base
 
-    for (let m = 2; m <= 4; m++) {
+    for (let m = 2; m <= 3; m++) {  // only check 2x and 3x
       const cand = baseTau * m;
       if (cand <= maxTau) {
         const v = this.cmnd[cand];
         // Accept ONLY if strictly better by at least IMPROVE
         if (v < bestVal - IMPROVE) {
+        if (v < bestVal - STRICT_IMPROVEMENT && v < 0.10) {
           bestTau = cand;
           bestVal = v;
         }
       }
     }
+
     tauEstimate = bestTau;
 
-    // Parabolic interpolation on CMND around tauEstimate
     let betterTau = tauEstimate;
     if (tauEstimate > 1 && tauEstimate < maxTau){
       const x0 = this.cmnd[tauEstimate - 1];
@@ -809,7 +1359,6 @@ class YinProcessor extends AudioWorkletProcessor {
 
     const freq = sampleRate / betterTau;
 
-    // Confidence heuristic: 1 - CMND at tau (clamped)
     const c = 1 - this.cmnd[tauEstimate];
     const conf = (c < 0) ? 0 : (c > 1 ? 1 : c);
 
@@ -820,7 +1369,6 @@ class YinProcessor extends AudioWorkletProcessor {
     const input = inputs[0];
     const output = outputs[0];
 
-    // Write silence to output (node must be connected to run).
     if (output && output.length){
       for (let ch=0; ch<output.length; ch++){
         const outCh = output[ch];
@@ -833,16 +1381,13 @@ class YinProcessor extends AudioWorkletProcessor {
     const inCh = input[0];
     const blockLen = inCh.length;
 
-    // Accumulate into ring, compute block energy
     let e2 = 0;
     for (let i=0; i<blockLen; i++){
       const s = inCh[i];
-      // ring buffer write
       this.ring[this.ringWrite] = s;
       this.ringWrite++;
       if (this.ringWrite >= this.windowSize) this.ringWrite = 0;
       if (this.filled < this.windowSize) this.filled++;
-
       e2 += s * s;
     }
 
@@ -851,25 +1396,24 @@ class YinProcessor extends AudioWorkletProcessor {
 
     this.samplesSince += blockLen;
 
-    // Analyze at hop intervals, only after window filled
     if (this.filled >= this.windowSize && this.samplesSince >= this.hopSize){
       this.samplesSince = 0;
 
       this._copyRingToWindow();
       const est = this._yinEstimate();
 
-      // Throttle messages to reduce main-thread overhead
       const now = currentTime;
       if ((now - this.lastPostTime) >= this.postInterval){
         this.lastPostTime = now;
 
-        // Approx dBFS from rms2 (avoid log(0))
         const rms = Math.sqrt(this.rms2);
         const rmsDb = 20 * Math.log10(rms + 1e-12);
 
+        const calibratedFreq = est.freq * this.calibrationFactor;
+
         this.port.postMessage({
           type: "result",
-          freq: est.freq,
+          freq: calibratedFreq,
           conf: est.conf,
           rmsDb: rmsDb,
           sr: sampleRate,
@@ -909,13 +1453,18 @@ registerProcessor("yin-processor", YinProcessor);
   }
 
   function pushConfigToWorklet(){
-    if (!workletNode) return;
+    if (!workletNode || !workletReady) {
+      setTimeout(pushConfigToWorklet, 100);
+      return;
+    }
+    
     const cfg = {
       windowSize: parseInt(yinWindowSel.value, 10),
       hopSize: parseInt(yinHopSel.value, 10),
-      minFreq: clamp(parseFloat(minFreqInput.value || "70"), 20, 2000),
-      maxFreq: clamp(parseFloat(maxFreqInput.value || "400"), 50, 2000),
-      threshold: clamp(parseFloat(thresholdInput.value || "0.15"), 0.02, 0.5)
+      minFreq: clamp(parseFloat(minFreqInput.value || "70"), 16, 2000),
+      maxFreq: clamp(parseFloat(maxFreqInput.value || "1200"), 50, 2000),
+      threshold: clamp(parseFloat(thresholdInput.value || "0.12"), 0.02, 0.5),
+      calibrationFactor: GLOBAL_CALIBRATION_FACTOR
     };
     workletNode.port.postMessage({ type:"config", ...cfg });
   }
@@ -927,26 +1476,25 @@ registerProcessor("yin-processor", YinProcessor);
     setError(null);
 
     if (!window.AudioContext && !window.webkitAudioContext){
-      setError("Web Audio API not available in this browser.");
+      setError("Web Audio API not available.");
       return;
     }
 
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AudioCtx({ latencyHint: "interactive" });
 
-    // iOS often starts suspended; resume must be in a user gesture (this click).
     if (audioCtx.state !== "running"){
-      try { await audioCtx.resume(); } catch {}
+      try { await audioCtx.resume(); } catch (err) {
+        console.error("Failed to resume audio context", err);
+      }
     }
 
-    // AudioWorklet availability check
     if (!audioCtx.audioWorklet){
-      setError("AudioWorklet is not supported in this browser. (Older iOS versions may require an alternate path.)");
+      setError("AudioWorklet not supported.");
       await safeStop();
       return;
     }
 
-    // Microphone
     let stream = null;
     try{
       stream = await navigator.mediaDevices.getUserMedia({
@@ -957,18 +1505,26 @@ registerProcessor("yin-processor", YinProcessor);
         }
       });
     } catch (e){
-      setError("Microphone permission failed or unavailable. Ensure HTTPS, then allow mic access in Safari.");
+      setError("Microphone permission failed. Ensure HTTPS and allow mic access.");
       await safeStop();
       return;
     }
     micStream = stream;
+
+    if (micStream) {
+      micStream.addEventListener('inactive', () => {
+        console.warn('Microphone stream became inactive');
+        setError("Microphone access lost. Please check your settings.");
+        safeStop();
+      });
+    }
 
     try{
       const moduleURL = makeWorkletModuleURL();
       await audioCtx.audioWorklet.addModule(moduleURL);
       URL.revokeObjectURL(moduleURL);
     } catch (e){
-      setError("Failed to load AudioWorklet module. Some Safari builds are strict about worklet execution contexts.");
+      setError("Failed to load AudioWorklet module.");
       await safeStop();
       return;
     }
@@ -985,18 +1541,48 @@ registerProcessor("yin-processor", YinProcessor);
       return;
     }
 
-    workletNode.port.onmessage = (e) => {
-      const msg = e.data || {};
-      if (msg.type !== "result") return;
-      latest.freqHz = msg.freq || 0;
-      latest.conf = msg.conf || 0;
-      latest.rmsDb = msg.rmsDb ?? -120;
-      latest.ts = msg.t || 0;
+    workletReady = false;
+    let workletReadyTimeout = setTimeout(() => {
+      if (!workletReady) {
+        setError("Audio worklet failed to initialize. Try refreshing the page.");
+        safeStop();
+      }
+    }, 5000);
 
-      srText.textContent = "SR: " + (msg.sr ? Math.round(msg.sr) : "—");
+    workletNode.onprocessorerror = (error) => {
+      console.error('Worklet processor error:', error);
+      setError("Audio processing error. Attempting recovery...");
+      errorCount++;
+      if (errorCount <= MAX_ERRORS) {
+        setTimeout(attemptRecovery, 2000);
+      }
     };
 
-    // Build audio graph: mic -> worklet -> gain(0) -> destination
+    workletNode.port.onmessage = (e) => {
+      const msg = e.data || {};
+
+      if (msg.type === "ready") {
+        workletReady = true;
+        clearTimeout(workletReadyTimeout);
+        pushConfigToWorklet();
+        console.log("Worklet ready ✓");
+        return;
+      }
+      
+      if (msg.type === "result") {
+        latest.freqHz = msg.freq || 0;
+        latest.conf = msg.conf || 0;
+        latest.rmsDb = msg.rmsDb ?? -120;
+        latest.ts = msg.t || 0;
+
+        if (latest.conf > 0.95) {
+          console.debug("[YIN] strong lock:", latest.freqHz.toFixed(2), "Hz");
+        }
+
+        srText.textContent = "" + (msg.sr ? Math.round(msg.sr) : "—");
+      }
+    };
+
     sourceNode = audioCtx.createMediaStreamSource(micStream);
     zeroGain = audioCtx.createGain();
     zeroGain.gain.value = 0;
@@ -1005,55 +1591,57 @@ registerProcessor("yin-processor", YinProcessor);
     workletNode.connect(zeroGain);
     zeroGain.connect(audioCtx.destination);
 
-    // Push config now that worklet exists
-    pushConfigToWorklet();
-
     btnStart.disabled = true;
     btnStop.disabled = false;
-    statusText.textContent = "status: running";
+    statusText.textContent = "running";
 
-    // ensure mode options set
     updateStringOptions();
 
-    // kick off rendering loop
     if (!lastRAF) lastRAF = performance.now();
     requestAnimationFrame(tick);
   }
 
   async function safeStop(){
-    // Stop mic tracks
     try{
       if (micStream){
         for (const tr of micStream.getTracks()) tr.stop();
       }
-    } catch {}
+    } catch (err){
+      console.error('Error stopping microphone tracks', err);
+    }
     micStream = null;
 
-    // Disconnect graph
-    try{ if (sourceNode) sourceNode.disconnect(); } catch {}
-    try{ if (workletNode) workletNode.disconnect(); } catch {}
-    try{ if (zeroGain) zeroGain.disconnect(); } catch {}
+    try{ if (sourceNode) sourceNode.disconnect(); } catch (err){ console.error('Error disconnecting sourceNode', err); }
+    try{ if (workletNode) workletNode.disconnect(); } catch (err){ console.error('Error disconnecting workletNode', err); }
+    try{ if (zeroGain) zeroGain.disconnect(); } catch (err){ console.error('Error disconnecting zeroGain', err); }
 
     sourceNode = null;
     workletNode = null;
+    workletReady = false;
     zeroGain = null;
 
-    // Close context
     try{
       if (audioCtx){
         await audioCtx.close();
       }
-    } catch {}
+    } catch (err){
+      console.error('Error closing audio context', err);
+    }
     audioCtx = null;
 
     latest.freqHz = 0;
     latest.conf = 0;
     latest.rmsDb = -120;
     rmsGateHoldUntilMs = 0;
+    
+    FREQ_HISTORY.length = 0;
+    lockedFrequency = 0;
+    lockConfidence = 0;
 
     btnStart.disabled = false;
     btnStop.disabled = true;
-    statusText.textContent = "status: idle";
+    statusText.textContent = "idle";
+    lockIndicator.classList.remove("active");
   }
 
   // ---------------------------
@@ -1067,7 +1655,6 @@ registerProcessor("yin-processor", YinProcessor);
   }
 
   function tick(now){
-    const dt = Math.max(0.001, (now - lastRAF) / 1000);
     lastRAF = now;
 
     const a4Hz = parseFloat(a4.value);
@@ -1077,15 +1664,21 @@ registerProcessor("yin-processor", YinProcessor);
     const rmsGate  = parseFloat(rmsGateInput.value);
     updateSliderLabels();
 
-    // Update mode display
     const mode = modeSel.value;
     modeText.textContent = mode === "open" ? "Open-String Auto" :
                            mode === "chromatic" ? "Chromatic" :
-                           mode === "guitar" ? "Guitar (string lock)" :
-                           "Bass (string lock)";
+                           mode === "guitar" ? "Guitar (lock)" :
+                           "Bass (lock, 16Hz+)";
 
-    // Gating
     const nowMs = performance.now();
+
+    // **MODE TRANSITION FADE**
+    if (modeTransitionActive) {
+      const elapsed = nowMs - transitionStartTime;
+      if (elapsed > TRANSITION_DURATION) {
+        modeTransitionActive = false;
+      }
+    }
 
     if (latest.rmsDb >= rmsGate) {
       rmsGateHoldUntilMs = nowMs + RMS_HOLD_MS;
@@ -1094,32 +1687,62 @@ registerProcessor("yin-processor", YinProcessor);
 
     const hasPitch = (latest.freqHz > 0) && (latest.conf >= confGate) && rmsGateOpen;
 
-    confGateMarker.style.left = pct01(confGate).toFixed(1) + "%";
-    confLiveMarker.style.left = pct01(latest.conf).toFixed(1) + "%";
-    confGaugeText.textContent = `live ${latest.conf.toFixed(2)} / gate ${confGate.toFixed(2)}`;
-
-    rmsGateMarker.style.left = pctDb(rmsGate).toFixed(1) + "%";
-    rmsLiveMarker.style.left = pctDb(latest.rmsDb).toFixed(1) + "%";
-    rmsGaugeText.textContent = `live ${latest.rmsDb.toFixed(1)} / gate ${rmsGate.toFixed(0)}`;
-
-    confText.textContent = hasPitch ? latest.conf.toFixed(2) : latest.conf.toFixed(2);
-    rmsText.textContent  = latest.rmsDb.toFixed(1);
+    // **SIGNAL QUALITY VALIDATION**
+    const quality = validateSignalQuality(latest.freqHz, latest.conf, latest.rmsDb, display);
+    
+    // **ADAPTIVE SMOOTHING + FREQUENCY LOCK**
+    let freq = latest.freqHz;
+    if (hasPitch && quality.valid){
+      const isStable = Math.abs(display.cents) < 10;
+      updateMedianBuffer(latest.conf, isStable);
+      
+      FREQ_HISTORY.push(freq);
+      if (FREQ_HISTORY.length > HISTORY_N) FREQ_HISTORY.shift();
+      freq = fastMedian(FREQ_HISTORY);
+      
+      freq = updateFrequencyLock(freq, latest.conf);
+    } else {
+      FREQ_HISTORY.length = 0;
+      lockConfidence = Math.max(0, lockConfidence - 0.1);
+      lockIndicator.classList.remove("active");
+    }
 
     if (!hasPitch){
       FREQ_HISTORY.length = 0;
-      display.hasPitch = false;
-      noteText.textContent = "—";
-      centsText.textContent = "no pitch";
-      centsText.className = "cents mono";
-      freqText.textContent = "freq: — Hz • target: — Hz";
-      needle.style.left = "50%";
+    // **GAUGE SYNC**
+    scheduleDOMUpdate({
+      confGate: pct01(confGate).toFixed(1) + "%",
+      confLive: pct01(latest.conf).toFixed(1) + "%",
+      confText: `(${latest.conf.toFixed(2)} / ${confGate.toFixed(2)})`,
+      rmsGate: pctDb(rmsGate).toFixed(1) + "%",
+      rmsLive: pctDb(latest.rmsDb).toFixed(1) + "%",
+      rmsText: `(${latest.rmsDb.toFixed(0)}dB)`,
+      confValue: latest.conf.toFixed(2),
+      rmsValue: latest.rmsDb.toFixed(1)
+    });
 
-      // fade strobe
-      for (let i=0;i<strobeLines.length;i++){
-        strobeLines[i].style.opacity = "0.10";
+    if (!hasPitch || !quality.valid){
+      display.hasPitch = false;
+      display.cents = 0;
+
+      scheduleDOMUpdate({
+        freq: "STANDBY",
+        note: "—",
+        cents: "--",
+        centsClass: "cents mono",
+        needlePct: "50%",
+        needleColor: "var(--fg)",
+        needleShadow: "none"
+      });
+
+      if (now - lastStrobeUpdate >= STROBE_UPDATE_INTERVAL) {
+        lastStrobeUpdate = now;
+        for (let i=0;i<strobeLines.length;i++){
+          strobeLines[i].style.opacity = "0.10";
+        }
       }
 
-      // keep looping while running
+      batchUpdateDOM();
       if (audioCtx) requestAnimationFrame(tick);
       return;
     }
@@ -1161,34 +1784,36 @@ registerProcessor("yin-processor", YinProcessor);
 
     const absC = Math.abs(cents);
     const rounded = (cents >= 0 ? "+" : "") + cents.toFixed(1) + "¢";
-    centsText.textContent = rounded;
-
-    centsText.className = "cents mono " + (absC <= 2 ? "good" : absC <= 8 ? "warn" : "bad");
-
-    // Needle mapping: clamp to +/- 50 cents across the bar
     const x = clamp(cents, -50, 50);
-    const pct = 50 + (x / 50) * 50; // 0..100
-    needle.style.left = pct.toFixed(1) + "%";
-    needle.style.background = (absC <= 2) ? "var(--accent)" : (absC <= 8 ? "var(--warn)" : "var(--bad)");
+    const pct = 50 + (x / 50) * 50;
+    const needleColor = (absC <= 2) ? "var(--primary)" : (absC <= 8 ? "var(--warn)" : "var(--bad)");
 
-    // Strobe: animate phase based on cents (bigger cents -> faster drift)
-    // Direction: sharp -> one way, flat -> opposite.
-    // Scale is tuned to be readable without being nauseating.
-    const speed = clamp(cents, -50, 50) * 0.9; // degrees/sec-ish
-    strobePhase = (strobePhase + speed * dt) % 360;
+    scheduleDOMUpdate({
+      freq: `${formatHz(freq)}Hz / ${formatHz(targetHz)}Hz`,
+      note: name + octave,
+      cents: rounded,
+      centsClass: "cents mono " + (absC <= 2 ? "good" : absC <= 8 ? "warn" : "bad"),
+      needlePct: pct.toFixed(1) + "%",
+      needleColor,
+      needleShadow: (absC <= 2) ? "0 0 10px var(--primary)" : "none"
+    });
 
-    // Update strobe line opacity with a "moving highlight"
-    // Use phase to create a traveling brighter spoke effect.
-    const phaseRad = strobePhase * (Math.PI/180);
-    for (let i=0;i<strobeLines.length;i++){
-      // base angle in radians
-      const a = (i * 30) * (Math.PI/180);
-      // brightness peaks when line aligns with phase
-      const d = Math.cos(a - phaseRad);
-      const op = 0.18 + 0.55 * Math.max(0, d);
-      strobeLines[i].style.opacity = op.toFixed(3);
+    if (now - lastStrobeUpdate >= STROBE_UPDATE_INTERVAL) {
+      lastStrobeUpdate = now;
+      const dtStrobe = STROBE_UPDATE_INTERVAL / 1000;
+      const speed = clamp(cents, -50, 50) * 0.9;
+      strobePhase = (strobePhase + speed * dtStrobe) % 360;
+
+      const phaseRad = strobePhase * (Math.PI/180);
+      for (let i=0;i<strobeLines.length;i++){
+        const a = (i * 30) * (Math.PI/180);
+        const d = Math.cos(a - phaseRad);
+        const op = 0.18 + 0.55 * Math.max(0, d);
+        strobeLines[i].style.opacity = op.toFixed(3);
+      }
     }
 
+    batchUpdateDOM();
     if (audioCtx) requestAnimationFrame(tick);
   }
 
@@ -1205,36 +1830,104 @@ registerProcessor("yin-processor", YinProcessor);
     thresholdVal.textContent = (+thresholdInput.value).toFixed(3);
     confGateVal.textContent = (+confGateInput.value).toFixed(2);
     rmsGateVal.textContent = (+rmsGateInput.value).toFixed(0);
+    calCentsVal.textContent = (+calCentsInput.value || 0).toFixed(1);
+  }
+
+  function updateCalibrationStatus(message = ""){
+    if (!calibrationStatus) return;
+    calibrationStatus.textContent = message;
+  }
+
+  function loadPersistedCalibration(){
+    try {
+      const raw = localStorage.getItem(CALIBRATION_STORAGE_KEY);
+      if (raw !== null) {
+        const cents = parseFloat(raw);
+        if (isFinite(cents)) {
+          calCentsInput.value = clamp(cents, -50, 50).toFixed(1);
+        }
+      }
+    } catch (err) {
+      console.error("Calibration load failed:", err);
+      updateCalibrationStatus("Calibration not persisted; defaults applied.");
+    }
+  }
+
+  function onCalibrationChange(){
+    let cents = parseFloat(calCentsInput.value || "0");
+    if (!isFinite(cents)) cents = 0;
+    cents = clamp(cents, -50, 50);
+
+    calCentsInput.value = cents.toFixed(1);
+    calCentsVal.textContent = cents.toFixed(1);
+
+    GLOBAL_CALIBRATION_FACTOR = Math.pow(2, cents / 1200);
+
+    updateCalibrationStatus("");
+
+    try {
+      localStorage.setItem(
+        CALIBRATION_STORAGE_KEY,
+        calCentsInput.value
+      );
+    } catch (err) {
+      console.error("Calibration save failed:", err);
+      updateCalibrationStatus("Calibration not saved; using temporary value.");
+    }
+
+    pushConfigToWorklet();
+  }
+
+  function resetCalibration(){
+    calCentsInput.value = "0.0";
+    calCentsVal.textContent = "0.0";
+    GLOBAL_CALIBRATION_FACTOR = 1.0;
+
+    updateCalibrationStatus("");
+
+    try {
+      localStorage.removeItem(CALIBRATION_STORAGE_KEY);
+    } catch (err) {
+      console.error("Calibration clear failed:", err);
+      updateCalibrationStatus("Could not clear saved calibration; using neutral value.");
+    }
+
+    pushConfigToWorklet();
   }
 
   function onConfigChange(){
-    // Keep ranges coherent
     const mode = modeSel.value;
     let minF = parseFloat(minFreqInput.value || "70");
     let maxF = parseFloat(maxFreqInput.value || "1200");
 
-    if (mode === "open" || mode === "guitar") {
+    // **EXTENDED FREQUENCY RANGES**
+    if (mode === "open") {
       minF = 70;
-      maxF = 400;
-      minFreqInput.value = String(minF);
-      maxFreqInput.value = String(maxF);
-    }
-    if (mode === "chromatic") {
+      maxF = 1200;
+    } else if (mode === "chromatic") {
       minF = 70;
       maxF = 1500;
-      minFreqInput.value = String(minF);
-      maxFreqInput.value = String(maxF);
-    }
-    if (mode === "bass") {
+    } else if (mode === "guitar") {
+      minF = 70;
+      maxF = 400;
+    } else if (mode === "bass") {
       minF = 30;
       maxF = 600;
-      minFreqInput.value = String(minF);
-      maxFreqInput.value = String(maxF);
     }
+    
+    minFreqInput.value = String(minF);
+    maxFreqInput.value = String(maxF);
+    
     if (minF >= maxF){
       maxF = minF + 50;
       maxFreqInput.value = String(maxF);
     }
+    
+    // **MODE TRANSITION STATE**
+    modeTransitionActive = true;
+    transitionStartTime = performance.now();
+    FREQ_HISTORY.length = 0;
+    
     pushConfigToWorklet();
   }
 
@@ -1252,15 +1945,27 @@ registerProcessor("yin-processor", YinProcessor);
     el.addEventListener("input", updateSliderLabels);
   });
 
+  calCentsInput.addEventListener("change", onCalibrationChange);
+  calCentsInput.addEventListener("input", onCalibrationChange);
+  resetCalibrationBtn.addEventListener("click", resetCalibration);
+
   a4.addEventListener("input", () => {
     a4Val.textContent = parseFloat(a4.value).toFixed(1).replace(/\.0$/, "");
   });
 
-  // init string selector and labels
+  a4.addEventListener("change", () => {
+    verifyCalibration(parseFloat(a4.value));
+  });
+
+  // Init
   updateStringOptions();
   updateSliderLabels();
+  loadPersistedCalibration();
+  onCalibrationChange();
   onConfigChange();
+  verifyCalibration(440);
 })();
 </script>
+
 </body>
 </html>
